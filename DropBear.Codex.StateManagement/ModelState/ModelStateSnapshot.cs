@@ -3,14 +3,16 @@ using System.Reflection;
 using System.Runtime.Caching;
 using System.Text;
 using Blake2Fast;
+using DropBear.Codex.StateManagement.Extensions;
+using DropBear.Codex.StateManagement.Interfaces;
 using ServiceStack.Text;
 
 namespace DropBear.Codex.StateManagement.ModelState;
 
-public static class ModelStateUtility
+public class ModelStateSnapshot : IModelStateSnapshot
 {
-    private static readonly MemoryCache SnapshotCache = MemoryCache.Default;
-    private static readonly Dictionary<Type, PropertyInfo[]> PropertiesCache = new();
+    private readonly Dictionary<Type, PropertyInfo[]> _propertiesCache = new();
+    private readonly MemoryCache _snapshotCache = MemoryCache.Default;
 
     /// <summary>
     ///     Initializes monitoring of a model by taking a snapshot of its state and storing it in the cache with an expiration
@@ -21,7 +23,7 @@ public static class ModelStateUtility
     /// <param name="expiration">The amount of time before the snapshot expires and is removed from the cache.</param>
     /// <param name="trackChanges">Should changes to the entity be tracked.</param>
     /// <param name="options">Optional custom JsConfig scope for serialization settings.</param>
-    public static void InitializeSnapshot<T>(T model, TimeSpan expiration, bool trackChanges = false,
+    public void InitializeSnapshot<T>(T model, TimeSpan expiration, bool trackChanges = false,
         JsConfigScope? options = null)
     {
         try
@@ -34,7 +36,7 @@ public static class ModelStateUtility
 
                 var cacheItemPolicy =
                     new CacheItemPolicy { AbsoluteExpiration = DateTimeOffset.UtcNow.Add(expiration) };
-                SnapshotCache.Set(new CacheItem(cacheKey, dataToStore), cacheItemPolicy);
+                _snapshotCache.Set(new CacheItem(cacheKey, dataToStore), cacheItemPolicy);
             }
         }
         catch (Exception ex)
@@ -51,7 +53,7 @@ public static class ModelStateUtility
     /// <param name="changedProperties">An enumerable of string representing the changed properties.</param>
     /// <param name="options">Optional custom JsConfig scope for serialization settings.</param>
     /// <returns>True if the model is dirty; otherwise, false.</returns>
-    public static bool IsModelDirty<T>(T model, out IEnumerable<string> changedProperties, JsConfigScope? options = null)
+    public bool IsModelDirty<T>(T model, out IEnumerable<string> changedProperties, JsConfigScope? options = null)
     {
         changedProperties = new List<string>();
         try
@@ -61,7 +63,7 @@ public static class ModelStateUtility
                 var serializedModel = JsonSerializer.SerializeToString(model);
                 var cacheKey = GenerateCacheKey(serializedModel, typeof(T));
 
-                if (SnapshotCache.Get(cacheKey) is not string storedData)
+                if (_snapshotCache.Get(cacheKey) is not string storedData)
                     return true; // Assume dirty if snapshot not found
 
                 // If storedData is a hash, then it's not tracking changes
@@ -81,6 +83,31 @@ public static class ModelStateUtility
         }
     }
 
+
+    /// <summary>
+    ///     Clears a model's snapshot from the cache.
+    /// </summary>
+    /// <typeparam name="T">The type of the model.</typeparam>
+    /// <param name="model">The model whose snapshot should be cleared.</param>
+    /// <param name="options">Optional custom JsConfig scope for serialization settings.</param>
+    public void ClearSnapshot<T>(T model, JsConfigScope? options = null)
+    {
+        try
+        {
+            using (options)
+            {
+                var serializedModel = JsonSerializer.SerializeToString(model);
+                var cacheKey = GenerateCacheKey(serializedModel, typeof(T));
+                _snapshotCache.Remove(cacheKey);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log exception or handle it according to your application's error handling policy
+            Console.WriteLine($"Error clearing snapshot: {ex.Message}");
+        }
+    }
+
     /// <summary>
     ///     Retrieves changed properties between two model states.
     /// </summary>
@@ -88,13 +115,13 @@ public static class ModelStateUtility
     /// <param name="current">The current state of the model.</param>
     /// <param name="original">The original state of the model.</param>
     /// <returns>A distinct list of property names that have changed.</returns>
-    private static IEnumerable<string> GetChangedProperties<T>(T? current, T? original) =>
+    private IEnumerable<string> GetChangedProperties<T>(T? current, T? original) =>
         CheckForChanges(current, original, string.Empty).Distinct(StringComparer.Ordinal);
 
     /// <summary>
     ///     Recursively checks for changes between the current and original model states.
     /// </summary>
-    private static IEnumerable<string> CheckForChanges(object? current, object? original, string basePath)
+    private IEnumerable<string> CheckForChanges(object? current, object? original, string basePath)
     {
         if (current is null || original is null) yield break;
 
@@ -122,7 +149,7 @@ public static class ModelStateUtility
         {
             // Retrieve properties from cache or get and cache them
             var properties =
-                PropertiesCache.GetOrAdd(type, t => t.GetProperties(BindingFlags.Public | BindingFlags.Instance));
+                _propertiesCache.GetOrAdd(type, t => t.GetProperties(BindingFlags.Public | BindingFlags.Instance));
 
             foreach (var property in properties)
             {
@@ -131,55 +158,6 @@ public static class ModelStateUtility
                 foreach (var change in CheckForChanges(currentPropValue, originalPropValue,
                              $"{basePath}.{property.Name}")) yield return change;
             }
-        }
-    }
-
-    /// <summary>
-    ///     Determines if a type is simple (non-complex and non-collection) or an enumeration.
-    /// </summary>
-    private static bool IsSimpleType(this Type type) =>
-        type.IsValueType || type.IsPrimitive ||
-        new[]
-        {
-            typeof(string), typeof(decimal), typeof(DateTime), typeof(DateTimeOffset), typeof(TimeSpan),
-            typeof(Guid),
-        }.Contains(type) ||
-        Convert.GetTypeCode(type) is not TypeCode.Object || type.IsEnum;
-
-    // Helper to add or get properties from cache
-#pragma warning disable CA1859
-    private static TValue GetOrAdd<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key,
-#pragma warning restore CA1859
-        Func<TKey, TValue> valueFactory)
-    {
-        if (dictionary.TryGetValue(key, out var value)) return value;
-        value = valueFactory(key);
-        dictionary[key] = value;
-
-        return value;
-    }
-
-    /// <summary>
-    ///     Clears a model's snapshot from the cache.
-    /// </summary>
-    /// <typeparam name="T">The type of the model.</typeparam>
-    /// <param name="model">The model whose snapshot should be cleared.</param>
-    /// <param name="options">Optional custom JsConfig scope for serialization settings.</param>
-    public static void ClearSnapshot<T>(T model, JsConfigScope? options = null)
-    {
-        try
-        {
-            using (options)
-            {
-                var serializedModel = JsonSerializer.SerializeToString(model);
-                var cacheKey = GenerateCacheKey(serializedModel, typeof(T));
-                SnapshotCache.Remove(cacheKey);
-            }
-        }
-        catch (Exception ex)
-        {
-            // Log exception or handle it according to your application's error handling policy
-            Console.WriteLine($"Error clearing snapshot: {ex.Message}");
         }
     }
 
