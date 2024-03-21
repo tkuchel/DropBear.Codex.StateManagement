@@ -3,13 +3,15 @@ using System.Reflection;
 using System.Runtime.Caching;
 using System.Text;
 using Blake2Fast;
+using Cysharp.Text;
+using DropBear.Codex.AppLogger.Interfaces;
 using DropBear.Codex.StateManagement.Extensions;
 using DropBear.Codex.StateManagement.Interfaces;
 using ServiceStack.Text;
 
 namespace DropBear.Codex.StateManagement.ModelState;
 
-public class ModelStateSnapshot : IModelStateSnapshot
+public class ModelStateSnapshot(IAppLogger<ModelStateSnapshot> logger) : IModelStateSnapshot
 {
     private readonly Dictionary<Type, PropertyInfo[]> _propertiesCache = new();
     private readonly MemoryCache _snapshotCache = MemoryCache.Default;
@@ -41,7 +43,7 @@ public class ModelStateSnapshot : IModelStateSnapshot
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error initializing snapshot: {ex.Message}");
+            logger.LogError(ex, ZString.Format("Error initializing snapshot: {0}", ex.Message));
         }
     }
 
@@ -78,7 +80,7 @@ public class ModelStateSnapshot : IModelStateSnapshot
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error checking if model is dirty: {ex.Message}");
+            logger.LogError(ex, ZString.Format("Error checking model dirty: {0}", ex.Message));
             return true; // Assume dirty in case of error
         }
     }
@@ -104,7 +106,7 @@ public class ModelStateSnapshot : IModelStateSnapshot
         catch (Exception ex)
         {
             // Log exception or handle it according to your application's error handling policy
-            Console.WriteLine($"Error clearing snapshot: {ex.Message}");
+            logger.LogError(ex, ZString.Format("Error clearing snapshot: {0}", ex.Message));
         }
     }
 
