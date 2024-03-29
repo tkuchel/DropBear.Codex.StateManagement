@@ -21,7 +21,7 @@
         <None Include="..\README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
     <ItemGroup>
-      <PackageReference Include="DropBear.Codex.AppLogger" Version="2024.3.4" />
+      <PackageReference Include="DropBear.Codex.AppLogger" Version="2024.3.6" />
       <PackageReference Include="Meziantou.DotNet.CodingStandard" Version="1.0.119">
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -29,6 +29,7 @@
       <PackageReference Include="SauceControl.Blake2Fast" Version="2.0.0" />
       <PackageReference Include="ServiceStack.Text" Version="8.2.2" />
       <PackageReference Include="System.Runtime.Caching" Version="8.0.0" />
+      <PackageReference Include="ZString" Version="2.6.0" />
     </ItemGroup>
 
 </Project>

@@ -129,7 +129,6 @@ public class ModelStateSnapshot(IAppLogger<ModelStateSnapshot> logger) : IModelS
 
         var type = current.GetType();
         if (type != original.GetType()) yield break;
-
         if (type.IsSimpleType() || type.IsEnum)
         {
             if (!Equals(current, original)) yield return basePath.Trim('.');
