@@ -5,7 +5,6 @@ using System.Runtime.Caching;
 using System.Text;
 using System.Text.Json;
 using Blake2Fast;
-using Cysharp.Text;
 using DropBear.Codex.AppLogger.Builders;
 using DropBear.Codex.StateManagement.Extensions;
 using DropBear.Codex.StateManagement.Interfaces;
@@ -16,10 +15,23 @@ namespace DropBear.Codex.StateManagement.ModelState;
 
 public class ModelStateSnapshot : IModelStateSnapshot
 {
+    private static readonly Action<ILogger, Exception?> InitializeSnapshotLog =
+        LoggerMessage.Define(LogLevel.Error, new EventId(0, "InitializeSnapshotError"),
+            "Error initializing snapshot");
+
+    private static readonly Action<ILogger, Exception?> CheckModelChangesLog =
+        LoggerMessage.Define(LogLevel.Error, new EventId(1, "CheckModelChangesError"),
+            "Error checking model changes");
+
+    private static readonly Action<ILogger, Exception?> ClearSnapshotLog =
+        LoggerMessage.Define(LogLevel.Error, new EventId(2, "ClearSnapshotError"),
+            "Error clearing snapshot");
+
     private readonly ILogger<ModelStateSnapshot> _logger;
     private readonly ConcurrentDictionary<Type, PropertyInfo[]> _propertiesCache = new();
     private readonly MemoryCache _snapshotCache = MemoryCache.Default;
-  
+
+
     public ModelStateSnapshot() => _logger = LoggerFactory.CreateLogger<ModelStateSnapshot>();
 
     private static ILoggerFactory LoggerFactory => new LoggerConfigurationBuilder()
@@ -51,7 +63,7 @@ public class ModelStateSnapshot : IModelStateSnapshot
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, ZString.Format("Error initializing snapshot: {0}", ex.Message));
+            InitializeSnapshotLog(_logger, ex);
         }
     }
 
@@ -85,8 +97,8 @@ public class ModelStateSnapshot : IModelStateSnapshot
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, ZString.Format("Error checking model changes: {0}", ex.Message));
-            return true; // Assume changed in case of error
+            CheckModelChangesLog(_logger, ex);
+            return true;
         }
     }
 
@@ -106,7 +118,7 @@ public class ModelStateSnapshot : IModelStateSnapshot
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, ZString.Format("Error clearing snapshot: {0}", ex.Message));
+            ClearSnapshotLog(_logger, ex);
         }
     }
 
