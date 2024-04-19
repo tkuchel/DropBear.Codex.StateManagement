@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Runtime.Caching;
 using System.Text;
 using System.Text.Json;
-using Blake2Fast;
+using Blake3;
 using DropBear.Codex.AppLogger.Builders;
 using DropBear.Codex.StateManagement.Extensions;
 using DropBear.Codex.StateManagement.Interfaces;
@@ -194,14 +194,23 @@ public class ModelStateSnapshot : IModelStateSnapshot
     private static string GenerateCacheKey(string serializedModel, Type modelType) =>
         $"{modelType.FullName}_{ComputeHash(serializedModel)}";
 
+
     /// <summary>
-    ///     Computes a Blake2b hash for the given input string.
+    ///     Computes a Blake3 hash for the given input string and returns a base64 encoded hash of the input.
     /// </summary>
     /// <param name="input">The input string to hash.</param>
     /// <returns>A base64 encoded hash of the input.</returns>
     private static string ComputeHash(string input)
     {
-        var hash = Blake2b.ComputeHash(Encoding.UTF8.GetBytes(input));
-        return Convert.ToBase64String(hash);
+        using var hasher = Hasher.New();
+        hasher.Update(Encoding.UTF8.GetBytes(input));
+        var hash = hasher.Finalize(); // This returns a Hash object
+
+        // Convert Hash object to byte array
+        var hashBytes = new byte[Hash.Size]; // Create a byte array to hold the hash
+        hash.AsSpan().CopyTo(hashBytes); // Copy the hash data to the byte array
+
+        // Convert the byte array to a base64 string
+        return Convert.ToBase64String(hashBytes);
     }
 }
