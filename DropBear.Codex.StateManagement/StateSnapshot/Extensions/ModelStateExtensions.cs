@@ -1,4 +1,4 @@
-﻿namespace DropBear.Codex.StateManagement.Extensions;
+﻿namespace DropBear.Codex.StateManagement.StateSnapshots.Extensions;
 
 public static class ModelStateExtensions
 {

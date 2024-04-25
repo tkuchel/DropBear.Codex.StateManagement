@@ -6,12 +6,12 @@ using System.Text;
 using System.Text.Json;
 using Blake3;
 using DropBear.Codex.AppLogger.Builders;
-using DropBear.Codex.StateManagement.Extensions;
-using DropBear.Codex.StateManagement.Interfaces;
+using DropBear.Codex.StateManagement.StateSnapshots.Extensions;
+using DropBear.Codex.StateManagement.StateSnapshots.Interfaces;
 using Microsoft.Extensions.Logging;
 using ILoggerFactory = DropBear.Codex.AppLogger.Interfaces.ILoggerFactory;
 
-namespace DropBear.Codex.StateManagement.ModelState;
+namespace DropBear.Codex.StateManagement.StateSnapshots;
 
 public class ModelStateSnapshot : IModelStateSnapshot
 {

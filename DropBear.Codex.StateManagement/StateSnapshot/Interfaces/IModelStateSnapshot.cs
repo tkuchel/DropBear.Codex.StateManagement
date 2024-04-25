@@ -1,6 +1,6 @@
 ﻿using System.Text.Json;
 
-namespace DropBear.Codex.StateManagement.Interfaces;
+namespace DropBear.Codex.StateManagement.StateSnapshots.Interfaces;
 
 public interface IModelStateSnapshot
 {
