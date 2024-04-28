@@ -3,6 +3,8 @@
 public class SnapshotBuilder<T>
 {
     private bool _automaticSnapshotting = true;
+    private SnapshotManagerRegistry? _registry;
+    private string? _registryKey;
     private TimeSpan _retentionTime = TimeSpan.FromHours(24);
     private TimeSpan _snapshotInterval = TimeSpan.FromMinutes(1);
 
@@ -33,18 +35,31 @@ public class SnapshotBuilder<T>
         return newBuilder;
     }
 
+    public SnapshotBuilder<T> UseRegistry(SnapshotManagerRegistry registry, string registryKey)
+    {
+        var newBuilder = Clone();
+        newBuilder._registry = registry;
+        newBuilder._registryKey = registryKey;
+        return newBuilder;
+    }
+
     public StateSnapshotManager<T> Build()
     {
         ValidateConfiguration();
+
+        if (_registry is not null && !string.IsNullOrEmpty(_registryKey))
+            return _registry.GetOrCreateManager<T>(_registryKey, _automaticSnapshotting, _snapshotInterval,
+                _retentionTime);
+
         return new StateSnapshotManager<T>(_automaticSnapshotting, _snapshotInterval, _retentionTime);
     }
 
     private void ValidateConfiguration()
     {
-        // Add any complex validation logic that needs multiple properties to be considered here
+        if (_snapshotInterval > _retentionTime)
+            throw new InvalidOperationException("Snapshot interval cannot exceed the retention time.");
     }
 
     private SnapshotBuilder<T> Clone() =>
-        // Create a copy of the current builder to maintain immutability
-        (SnapshotBuilder<T>)MemberwiseClone();
+        (SnapshotBuilder<T>)MemberwiseClone(); // Correctly copies the current state of the builder
 }

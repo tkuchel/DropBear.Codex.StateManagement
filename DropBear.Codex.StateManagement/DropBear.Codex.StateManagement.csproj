@@ -8,7 +8,8 @@
         <Title>DropBear.Codex.StateManagement</Title>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <Authors>Terrence Kuchel (DropBear)</Authors>
-        <Description>DropBear Codex State Management allows a consumer to snapshot a model and check if it's state has changed by comparing the current state with a historyical state. </Description>
+        <Description>The `StateSnapshotManager` library provides a comprehensive solution for managing state snapshots in .NET applications. It supports automatic snapshotting, state reversion, and notifications upon state changes, making it ideal for applications that require historical state management or undo capabilities.
+        </Description>
         <Copyright>2024 Terrence Kuchel</Copyright>
         <PackageProjectUrl>https://github.com/tkuchel/DropBear.Codex.StateManagement</PackageProjectUrl>
         <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
@@ -28,9 +29,6 @@
       <PackageReference Include="Stateless" Version="5.15.0" />
     </ItemGroup>
     <ItemGroup>
-      <None Update="README.md">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </None>
+        <None Include="README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
-
 </Project>
