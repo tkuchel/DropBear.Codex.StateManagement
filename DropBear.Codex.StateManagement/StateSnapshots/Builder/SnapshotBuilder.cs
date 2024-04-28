@@ -1,12 +1,18 @@
-﻿namespace DropBear.Codex.StateManagement.StateSnapshots.Builder;
+﻿using DropBear.Codex.StateManagement.StateSnapshots.Interfaces;
+using DropBear.Codex.StateManagement.StateSnapshots.Models;
 
-public class SnapshotBuilder<T>
+namespace DropBear.Codex.StateManagement.StateSnapshots.Builder;
+
+public class SnapshotBuilder<T> where T : ICloneable<T>
 {
     private bool _automaticSnapshotting = true;
+    private IStateComparer<T> _comparer;
     private SnapshotManagerRegistry? _registry;
     private string? _registryKey;
     private TimeSpan _retentionTime = TimeSpan.FromHours(24);
     private TimeSpan _snapshotInterval = TimeSpan.FromMinutes(1);
+
+    public SnapshotBuilder() => _comparer = new DefaultStateComparer<T>(); // Default comparer
 
     public SnapshotBuilder<T> SetAutomaticSnapshotting(bool enabled)
     {
@@ -43,15 +49,22 @@ public class SnapshotBuilder<T>
         return newBuilder;
     }
 
+    public SnapshotBuilder<T> SetComparer(IStateComparer<T> comparer)
+    {
+        var newBuilder = Clone();
+        newBuilder._comparer = comparer;
+        return newBuilder;
+    }
+
     public StateSnapshotManager<T> Build()
     {
         ValidateConfiguration();
 
         if (_registry is not null && !string.IsNullOrEmpty(_registryKey))
-            return _registry.GetOrCreateManager<T>(_registryKey, _automaticSnapshotting, _snapshotInterval,
-                _retentionTime);
+            return _registry.GetOrCreateManager<T>(_registryKey, _automaticSnapshotting,
+                _snapshotInterval, _retentionTime);
 
-        return new StateSnapshotManager<T>(_automaticSnapshotting, _snapshotInterval, _retentionTime);
+        return new StateSnapshotManager<T>(_automaticSnapshotting, _snapshotInterval, _retentionTime, _comparer);
     }
 
     private void ValidateConfiguration()

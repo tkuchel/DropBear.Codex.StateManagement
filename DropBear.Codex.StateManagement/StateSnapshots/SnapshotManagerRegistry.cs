@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using DropBear.Codex.Core;
+using DropBear.Codex.StateManagement.StateSnapshots.Interfaces;
 
 namespace DropBear.Codex.StateManagement.StateSnapshots;
 
@@ -8,7 +9,7 @@ public class SnapshotManagerRegistry
     private readonly ConcurrentDictionary<string, object> _managers = new(StringComparer.OrdinalIgnoreCase);
 
     public StateSnapshotManager<T> GetOrCreateManager<T>(string key, bool automaticSnapshotting,
-        TimeSpan snapshotInterval, TimeSpan retentionTime)
+        TimeSpan snapshotInterval, TimeSpan retentionTime) where T : ICloneable<T>
     {
         // Avoiding closure by using a local function
         StateSnapshotManager<T> CreateManager()
@@ -19,20 +20,20 @@ public class SnapshotManagerRegistry
         return (StateSnapshotManager<T>)_managers.GetOrAdd(key, _ => CreateManager());
     }
 
-    public void CreateSnapshot<T>(string key, T currentState)
+    public void CreateSnapshot<T>(string key, T currentState) where T : ICloneable<T>
     {
         var manager = GetOrCreateManager<T>(key, true, TimeSpan.FromMinutes(5), TimeSpan.FromDays(1));
         manager.CreateSnapshot(currentState);
     }
 
-    public Result RevertToSnapshot<T>(string key, int version)
+    public Result RevertToSnapshot<T>(string key, int version) where T : ICloneable<T>
     {
         if (_managers.TryGetValue(key, out var manager) && manager is StateSnapshotManager<T> typedManager)
             return typedManager.RevertToSnapshot(version);
         return Result.Failure("Snapshot manager not found.");
     }
 
-    public Result<bool> IsDirty<T>(string key, T currentState)
+    public Result<bool> IsDirty<T>(string key, T currentState) where T : ICloneable<T>
     {
         if (_managers.TryGetValue(key, out var manager) && manager is StateSnapshotManager<T> typedManager)
             return typedManager.IsDirty(currentState);
