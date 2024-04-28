@@ -4,7 +4,7 @@ using DropBear.Codex.StateManagement.StateSnapshots.Interfaces;
 
 namespace DropBear.Codex.StateManagement.StateSnapshots;
 
-public class SnapshotManagerRegistry
+public class SnapshotManagerRegistry : ISnapshotManagerRegistry
 {
     private readonly ConcurrentDictionary<string, object> _managers = new(StringComparer.OrdinalIgnoreCase);
 
