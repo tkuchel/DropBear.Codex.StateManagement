@@ -1,52 +1,92 @@
-# DropBear.Codex.StateManagement
+# StateSnapshotManager Library
 
-DropBear.Codex.StateManagement is a simple state management library designed to monitor and manage the state of your
-models efficiently. This library provides functionalities for snapshotting model states, tracking changes, and
-efficiently managing model state through a caching system with a sliding expiration policy.
+## Overview
+
+The `StateSnapshotManager` library provides a comprehensive solution for managing state snapshots in .NET applications. It supports automatic snapshotting, state reversion, and notifications upon state changes, making it ideal for applications that require historical state management or undo capabilities.
 
 ## Features
 
-- **Snapshot Initialization**: Initialize monitoring of a model by taking a snapshot of its state, which is stored in
-  the cache with customizable expiration.
-- **Change Detection**: Check if the model has changed since the last snapshot was taken and obtain a list of changed
-  properties.
-- **Snapshot Management**: Clear snapshots from the cache to free up resources, especially for models that are no longer
-  in use.
-- **Extension Methods**: Includes extension methods to simplify checking and adding properties to models within the
-  cache.
+- **Automatic Snapshotting**: Automatically captures snapshots of your application's state at configured intervals.
+- **State Reversion**: Allows reverting to any previously captured state snapshot.
+- **Observable State Changes**: Utilizes the R3 library to notify subscribers about state reversions, enabling reactive programming scenarios.
+- **Flexible Configuration**: Use the `SnapshotBuilder` for easy and fluent configuration of snapshot managers.
+- **Multi-Model Management**: Manage snapshots for multiple models using the `SnapshotManagerRegistry`.
 
 ## Getting Started
 
-To use DropBear.Codex.StateManagement in your project, follow these steps:
+### Installation
 
-1. Add a reference to the library in your project file.
-2. Import the necessary namespaces:
+To install the `StateSnapshotManager` library, use the following NuGet command:
 
-   ```csharp
-   using DropBear.Codex.StateManagement.Extensions;
-   using DropBear.Codex.StateManagement.Interfaces;
-    ```
-3. Initialize a snapshot of your model:
+```bash
+Install-Package DropBear.Codex.StateManagement
+```
 
-   ```csharp
-   var model = new YourModel();
-   IModelStateSnapshot snapshotManager = new ModelStateSnapshot();
-   snapshotManager.InitializeSnapshot(model, TimeSpan.FromMinutes(30));
-    ```
-4. Check for changes in the model:
+### Usage
 
-   ```csharp
-   if (snapshotManager.HasModelChanged(model, out var changes)) {
-   Console.WriteLine("Changes detected in the following properties:");
-   foreach (var change in changes) {
-   Console.WriteLine(change);}}
-    ```
-5. Clear snapshots from the cache:
+Here's a quick example to get you started with a basic snapshot manager:
 
-    ```csharp
-       snapshotManager.ClearSnapshot(model);
-    ```
+```csharp
+using DropBear.Codex.StateManagement.StateSnapshots;
+
+public class YourApplication
+{
+    public void Setup()
+    {
+        var snapshotManager = new StateSnapshotManager<MyStateType>(true, TimeSpan.FromMinutes(5), TimeSpan.FromDays(1));
+        snapshotManager.StateReverted.Subscribe(state =>
+        {
+            Console.WriteLine("State has been reverted.");
+        });
+
+        // Assume `currentState` is an instance of `MyStateType`
+        snapshotManager.CreateSnapshot(currentState);
+    }
+}
+```
+
+#### Using the SnapshotBuilder
+
+Here’s how to use the `SnapshotBuilder` to create a configured `StateSnapshotManager`:
+
+```csharp
+var builder = new SnapshotBuilder<MyStateType>()
+    .SetAutomaticSnapshotting(true)
+    .SetSnapshotInterval(TimeSpan.FromMinutes(10))
+    .SetRetentionTime(TimeSpan.FromDays(7));
+
+var manager = builder.Build();
+```
+
+#### Using the SnapshotManagerRegistry
+
+To manage multiple types of snapshot managers:
+
+```csharp
+var registry = new SnapshotManagerRegistry();
+registry.CreateSnapshot("userManager", new User { Name = "Alice", Age = 30 });
+registry.CreateSnapshot("productManager", new Product { Name = "Widget", Price = 19.99 });
+
+// Reverting state for a user manager
+var result = registry.RevertToSnapshot<User>("userManager", 1);
+```
+
+## Configuration
+
+`StateSnapshotManager` can be configured with the following parameters:
+
+- `automaticSnapshotting`: Whether the manager should automatically take snapshots.
+- `snapshotInterval`: The time interval between automatic snapshots.
+- `retentionTime`: How long snapshots should be retained before being discarded.
+
+## Building and Contributing
+
+Contributions to the library are welcome! To build the project from source, clone the repository and open it in your preferred .NET development environment.
 
 ## License
 
-This project is licensed under the LGPLv3 License - see the https://www.gnu.org/licenses/lgpl-3.0.en.html for details.
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For support and further assistance, contact the package maintainer or submit an issue on the GitHub repository.
