@@ -21,7 +21,7 @@ public class ObservableModel<T> : INotifyPropertyChanged
         }
         set
         {
-            if (!ObservableModel<T>.IsValid(value)) throw new ArgumentException("Invalid state value.", nameof(value));
+            if (!IsValid(value)) throw new ArgumentException("Invalid state value.", nameof(value));
 
             lock (_lock)
             {
@@ -36,9 +36,7 @@ public class ObservableModel<T> : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    private static bool IsValid(T value) =>
-        // Add detailed validation logic here
-        true; // Assume all values are valid by default
+    private static bool IsValid(T value) => value is not null; // Assume all values are valid by default
 
     protected virtual void OnPropertyChanged(string propertyName) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
