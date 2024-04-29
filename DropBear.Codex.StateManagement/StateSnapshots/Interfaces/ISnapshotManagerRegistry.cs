@@ -10,5 +10,7 @@ public interface ISnapshotManagerRegistry
     void CreateSnapshot<T>(string key, T currentState) where T : ICloneable<T>;
     Result RevertToSnapshot<T>(string key, int version) where T : ICloneable<T>;
     Result<bool> IsDirty<T>(string key, T currentState) where T : ICloneable<T>;
+    void Register<T>(StateSnapshotManager<T> manager, string key) where T : ICloneable<T>;
+
     void DisposeAll();
 }

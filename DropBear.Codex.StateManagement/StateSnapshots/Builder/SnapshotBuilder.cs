@@ -7,7 +7,7 @@ public class SnapshotBuilder<T> where T : ICloneable<T>
 {
     private bool _automaticSnapshotting = true;
     private IStateComparer<T> _comparer;
-    private SnapshotManagerRegistry? _registry;
+    private ISnapshotManagerRegistry? _registry;
     private string? _registryKey;
     private TimeSpan _retentionTime = TimeSpan.FromHours(24);
     private TimeSpan _snapshotInterval = TimeSpan.FromMinutes(1);
@@ -41,7 +41,7 @@ public class SnapshotBuilder<T> where T : ICloneable<T>
         return newBuilder;
     }
 
-    public SnapshotBuilder<T> UseRegistry(SnapshotManagerRegistry registry, string registryKey)
+    public SnapshotBuilder<T> UseRegistry(ISnapshotManagerRegistry registry, string registryKey)
     {
         var newBuilder = Clone();
         newBuilder._registry = registry;

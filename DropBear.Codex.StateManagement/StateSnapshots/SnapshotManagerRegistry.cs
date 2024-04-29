@@ -47,4 +47,10 @@ public class SnapshotManagerRegistry : ISnapshotManagerRegistry
                 disposable.Dispose();
         _managers.Clear();
     }
+
+    public void Register<T>(StateSnapshotManager<T> manager, string key) where T : ICloneable<T>
+    {
+        if (!_managers.TryAdd(key, manager))
+            throw new InvalidOperationException($"A manager with the key '{key}' already exists.");
+    }
 }
