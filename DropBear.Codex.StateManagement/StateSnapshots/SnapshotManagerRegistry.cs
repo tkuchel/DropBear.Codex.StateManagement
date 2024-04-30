@@ -11,13 +11,13 @@ public class SnapshotManagerRegistry : ISnapshotManagerRegistry
     public StateSnapshotManager<T> GetOrCreateManager<T>(string key, bool automaticSnapshotting,
         TimeSpan snapshotInterval, TimeSpan retentionTime) where T : ICloneable<T>
     {
+        return (StateSnapshotManager<T>)_managers.GetOrAdd(key, _ => CreateManager());
+
         // Avoiding closure by using a local function
         StateSnapshotManager<T> CreateManager()
         {
             return new StateSnapshotManager<T>(automaticSnapshotting, snapshotInterval, retentionTime);
         }
-
-        return (StateSnapshotManager<T>)_managers.GetOrAdd(key, _ => CreateManager());
     }
 
     public void CreateSnapshot<T>(string key, T currentState) where T : ICloneable<T>
@@ -52,5 +52,12 @@ public class SnapshotManagerRegistry : ISnapshotManagerRegistry
     {
         if (!_managers.TryAdd(key, manager))
             throw new InvalidOperationException($"A manager with the key '{key}' already exists.");
+    }
+
+    public StateSnapshotManager<T> GetManager<T>(string key) where T : ICloneable<T>
+    {
+        if (_managers.TryGetValue(key, out var manager) && manager is StateSnapshotManager<T> typedManager)
+            return typedManager;
+        throw new InvalidOperationException($"Snapshot manager not found for key '{key}'.");
     }
 }
