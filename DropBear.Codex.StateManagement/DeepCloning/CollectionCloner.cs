@@ -8,7 +8,7 @@ namespace DropBear.Codex.StateManagement.DeepCloning;
 
 public static class CollectionCloner
 {
-    public static Expression CloneCollection(Expression collection, Type collectionType, Expression track)
+    public static Expression CloneCollection(Expression collection, Type collectionType)
     {
         var elementType = collectionType.IsArray
             ? collectionType.GetElementType() ?? throw new InvalidOperationException("Array has no element type.")

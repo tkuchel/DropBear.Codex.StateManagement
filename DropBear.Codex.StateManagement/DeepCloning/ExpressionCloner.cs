@@ -63,7 +63,7 @@ internal static Expression BuildCloneExpression(Type type, Expression source, Ex
         // Check if the field itself is a collection and handle accordingly
         if (typeof(IEnumerable).IsAssignableFrom(fieldType) && fieldType != typeof(string))
         {
-            var clonedField = CollectionCloner.CloneCollection(fieldExpression, fieldType, track);
+            var clonedField = CollectionCloner.CloneCollection(fieldExpression, fieldType);
             bindings.Add(Expression.Bind(field, clonedField));
         }
         else if (!IsImmutable(fieldType)) // Continue to use IsImmutable to check for types that need deep cloning
