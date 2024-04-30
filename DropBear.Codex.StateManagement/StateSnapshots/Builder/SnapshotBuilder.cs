@@ -18,7 +18,7 @@ public class SnapshotBuilder<T> : ISnapshotBuilder where T : ICloneable<T>
     object ISnapshotBuilder.Build() => Build();
 
     // Expose registry key for the interface if needed
-    string ISnapshotBuilder.RegistryKey => _registryKey ?? nameof(T);
+    string ISnapshotBuilder.RegistryKey => _registryKey ?? typeof(T).FullName ?? string.Empty;
 
     public SnapshotBuilder<T> SetAutomaticSnapshotting(bool enabled)
     {
@@ -49,6 +49,8 @@ public class SnapshotBuilder<T> : ISnapshotBuilder where T : ICloneable<T>
 
     public SnapshotBuilder<T> UseRegistry(ISnapshotManagerRegistry registry, string registryKey)
     {
+        Console.WriteLine($"Registering type {typeof(T).Name} with key {registryKey}");
+
         var newBuilder = Clone();
         newBuilder._registry = registry;
         newBuilder._registryKey = registryKey;
