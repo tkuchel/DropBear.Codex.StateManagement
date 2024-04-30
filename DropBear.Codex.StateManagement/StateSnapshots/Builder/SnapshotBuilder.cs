@@ -3,16 +3,22 @@ using DropBear.Codex.StateManagement.StateSnapshots.Models;
 
 namespace DropBear.Codex.StateManagement.StateSnapshots.Builder;
 
-public class SnapshotBuilder<T> where T : ICloneable<T>
+public class SnapshotBuilder<T> : ISnapshotBuilder where T : ICloneable<T>
 {
     private bool _automaticSnapshotting = true;
     private IStateComparer<T> _comparer;
     private ISnapshotManagerRegistry? _registry;
-    internal string? _registryKey;
+    private string? _registryKey;
     private TimeSpan _retentionTime = TimeSpan.FromHours(24);
     private TimeSpan _snapshotInterval = TimeSpan.FromMinutes(1);
 
     public SnapshotBuilder() => _comparer = new DefaultStateComparer<T>(); // Default comparer
+
+    // Explicit ISnapshotBuilder implementation for building the snapshot manager
+    object ISnapshotBuilder.Build() => Build();
+
+    // Expose registry key for the interface if needed
+    string ISnapshotBuilder.RegistryKey => _registryKey ?? nameof(T);
 
     public SnapshotBuilder<T> SetAutomaticSnapshotting(bool enabled)
     {
