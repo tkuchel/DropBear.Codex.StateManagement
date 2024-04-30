@@ -2,7 +2,7 @@
 using DropBear.Codex.Core;
 using Newtonsoft.Json;
 
-namespace DropBear.Codex.StateManagement.StateSnapshots.Utils;
+namespace DropBear.Codex.StateManagement.DeepCloning;
 
 public static class DeepClonerExtensions
 {
@@ -15,7 +15,7 @@ public static class DeepClonerExtensions
         catch (Exception ex)
         {
             Debug.WriteLine($"Error cloning object: {ex.Message}");
-            return Result<T>.Failure("An error occurred while cloning the object.");
+            return Result<T>.Failure("An error occurred while cloning the object: " + ex.Message);
         }
     }
 
@@ -24,12 +24,13 @@ public static class DeepClonerExtensions
     {
         try
         {
-            return await Task.Run(() => DeepCloner.Clone(obj, settings)).ConfigureAwait(false);
+            // Execute the clone operation asynchronously
+            return await Task.Run(() => obj.Clone(settings)).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error cloning object: {ex.Message}");
-            return Result<T>.Failure("An error occurred while cloning the object.");
+            Debug.WriteLine($"Async error cloning object: {ex.Message}");
+            return Result<T>.Failure("An error occurred while asynchronously cloning the object: " + ex.Message);
         }
     }
 }
