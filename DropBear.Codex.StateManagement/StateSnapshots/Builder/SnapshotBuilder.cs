@@ -8,7 +8,7 @@ public class SnapshotBuilder<T> where T : ICloneable<T>
     private bool _automaticSnapshotting = true;
     private IStateComparer<T> _comparer;
     private ISnapshotManagerRegistry? _registry;
-    private string? _registryKey;
+    internal string? _registryKey;
     private TimeSpan _retentionTime = TimeSpan.FromHours(24);
     private TimeSpan _snapshotInterval = TimeSpan.FromMinutes(1);
 
