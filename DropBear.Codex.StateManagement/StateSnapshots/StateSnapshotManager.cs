@@ -72,7 +72,6 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
         _subscription = null;
     }
 
-
     private void HandleModelChanged(T state) => CreateSnapshot(state);
 
     public Result CreateSnapshot(T currentState)
@@ -117,6 +116,14 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
         return Result<bool>.Success(areEqual);
     }
 
+    public Result ClearSnapshotsForType<TType>()
+    {
+        var keys = _snapshots.Keys.Where(k => _snapshots[k].State is TType).ToList();
+        foreach (var key in keys)
+            _snapshots.TryRemove(key, out _);
+        return Result.Success();
+    }
+    
     private void CleanupOldSnapshots()
     {
         var cutoff = DateTimeOffset.UtcNow - _retentionTime;
@@ -143,7 +150,6 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
             return Result<bool>.Failure(e.Message);
         }
     }
-
 
     public T? GetCurrentState() => _currentState;
 }
