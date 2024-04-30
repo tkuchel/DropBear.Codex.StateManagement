@@ -50,8 +50,14 @@ public class SnapshotManagerRegistry : ISnapshotManagerRegistry
 
     public void Register<T>(StateSnapshotManager<T> manager, string key) where T : ICloneable<T>
     {
-        if (!_managers.TryAdd(key, manager))
-            throw new InvalidOperationException($"A manager with the key '{key}' already exists.");
+        if (_managers.TryAdd(key, manager)) return;
+        
+        // Silent dispose if key already exists
+        if (manager is IDisposable disposable)
+            disposable.Dispose();
+            
+        // Log warning if key already exists
+        Console.WriteLine($"Snapshot manager with key '{key}' already exists.");
     }
 
     public StateSnapshotManager<T>? GetManager<T>(string key) where T : ICloneable<T>
