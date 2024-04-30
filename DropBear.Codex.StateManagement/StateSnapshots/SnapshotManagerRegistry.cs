@@ -54,10 +54,10 @@ public class SnapshotManagerRegistry : ISnapshotManagerRegistry
             throw new InvalidOperationException($"A manager with the key '{key}' already exists.");
     }
 
-    public StateSnapshotManager<T> GetManager<T>(string key) where T : ICloneable<T>
+    public StateSnapshotManager<T>? GetManager<T>(string key) where T : ICloneable<T>
     {
         if (_managers.TryGetValue(key, out var manager) && manager is StateSnapshotManager<T> typedManager)
             return typedManager;
-        throw new InvalidOperationException($"Snapshot manager not found for key '{key}'.");
+        return default;
     }
 }
