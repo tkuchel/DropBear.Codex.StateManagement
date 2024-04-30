@@ -45,8 +45,8 @@ public class BulkSnapshotBuilder
                     Console.WriteLine($"Registering manager of type: {managerType}, with T: {typeArgument}");
 
                     var method = _registry.GetType().GetMethod(nameof(ISnapshotManagerRegistry.Register));
-                    var genericMethod = method.MakeGenericMethod(typeArgument);
-                    genericMethod.Invoke(_registry, new[] { manager, builder.RegistryKey });
+                    var genericMethod = method?.MakeGenericMethod(typeArgument);
+                    genericMethod?.Invoke(_registry, new[] { manager, builder.RegistryKey });
                 }
                 else
                 {
