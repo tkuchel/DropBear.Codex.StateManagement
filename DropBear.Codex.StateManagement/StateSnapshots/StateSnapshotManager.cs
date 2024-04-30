@@ -116,12 +116,17 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
         return Result<bool>.Success(areEqual);
     }
 
-    public Result ClearSnapshotsForType<TType>()
+    public Result ClearSnapshots()
     {
-        var keys = _snapshots.Keys.Where(k => _snapshots[k].State is TType).ToList();
-        foreach (var key in keys)
-            _snapshots.TryRemove(key, out _);
-        return Result.Success();
+        try
+        {
+            _snapshots.Clear();
+            return Result.Success();
+        }
+        catch (Exception e)
+        {
+            return Result.Failure(e.Message);
+        }
     }
     
     private void CleanupOldSnapshots()
