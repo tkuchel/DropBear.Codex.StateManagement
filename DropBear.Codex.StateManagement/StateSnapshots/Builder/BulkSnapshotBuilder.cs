@@ -6,45 +6,53 @@ public class BulkSnapshotBuilder
 {
     private readonly Dictionary<Type, object> _builders = new();
     private ISnapshotManagerRegistry? _registry;
+
     public BulkSnapshotBuilder UseRegistry(ISnapshotManagerRegistry registry)
     {
         _registry = registry;
         return this;
     }
+
     public SnapshotBuilder<T> ConfigureFor<T>() where T : ICloneable<T>, new()
     {
         var builder = new SnapshotBuilder<T>();
         _builders[typeof(T)] = builder;
         return builder;
     }
+
     public void BuildAll()
     {
         foreach (var entry in _builders)
-        {
-            // Check if the entry's value implements ISnapshotBuilder
             if (entry.Value is ISnapshotBuilder builder)
             {
-                var manager = builder.Build(); // Build the manager using the builder
+                var manager = builder.Build(); // Assuming Build returns a correctly typed manager
+                var managerType = manager.GetType();
 
-                // Check for nullity of the registry and the registry key
-                if (_registry is null || string.IsNullOrEmpty(builder.RegistryKey)) continue;
-                
-                // Use reflection to obtain the generic method with the correct type parameter
-                var method = _registry.GetType().GetMethod(nameof(ISnapshotManagerRegistry.Register));
-                if (method == null)
+                // Check if manager is of type StateSnapshotManager<T>
+                if (managerType.IsGenericType &&
+                    managerType.GetGenericTypeDefinition() == typeof(StateSnapshotManager<>))
                 {
-                    throw new InvalidOperationException("The Register method is not found on the registry.");
-                }
+                    var typeArgument = managerType.GetGenericArguments()[0]; // This should be ClientUpdateDto
 
-                // Make the method generic based on the type of the manager
-                var genericMethod = method.MakeGenericMethod(manager.GetType());
-                genericMethod.Invoke(_registry, new[] { manager, builder.RegistryKey });
+                    // Additional check to ensure that typeArgument implements ICloneable<T>
+                    var cloneableInterface = typeof(ICloneable<>).MakeGenericType(typeArgument);
+                    if (!cloneableInterface.IsAssignableFrom(typeArgument))
+                        throw new InvalidOperationException(
+                            $"Type {typeArgument.Name} does not implement ICloneable<{typeArgument.Name}> as expected.");
+
+                    if (_registry is null || string.IsNullOrEmpty(builder.RegistryKey)) continue;
+                    
+                    Console.WriteLine($"Registering manager of type: {managerType}, with T: {typeArgument}");
+
+                    var method = _registry.GetType().GetMethod(nameof(ISnapshotManagerRegistry.Register));
+                    var genericMethod = method.MakeGenericMethod(typeArgument);
+                    genericMethod.Invoke(_registry, new[] { manager, builder.RegistryKey });
+                }
+                else
+                {
+                    throw new InvalidOperationException(
+                        "The manager type is not a generic StateSnapshotManager<T> as expected.");
+                }
             }
-            else
-            {
-                // Optionally handle the case where a builder is not correctly implemented
-                throw new InvalidOperationException($"Builder for type {entry.Key.Name} does not implement ISnapshotBuilder.");
-            }
-        }
     }
 }
