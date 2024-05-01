@@ -1,8 +1,8 @@
 ﻿using System.Collections;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Reflection;
-using DropBear.Codex.StateManagement.DeepCloning.Attributes;
 using ReferenceEqualityComparer = DropBear.Codex.StateManagement.DeepCloning.Comparers.ReferenceEqualityComparer;
 
 namespace DropBear.Codex.StateManagement.DeepCloning;
@@ -18,7 +18,7 @@ public static class ExpressionCloner
         return cloner(original, track);
     }
 
-    private static Func<T, Dictionary<object, object>, T> GetCloner<T>()
+    internal static Func<T, Dictionary<object, object>, T> GetCloner<T>()
     {
         if (ClonerCache.TryGetValue(typeof(T), out var cachedCloner))
             return (Func<T, Dictionary<object, object>, T>)cachedCloner;
@@ -26,70 +26,53 @@ public static class ExpressionCloner
         var parameter = Expression.Parameter(type, "input");
         var trackParameter = Expression.Parameter(typeof(Dictionary<object, object>), "track");
         var body = BuildCloneExpression(type, parameter, trackParameter);
+        Console.WriteLine(body);
         var lambda = Expression.Lambda<Func<T, Dictionary<object, object>, T>>(body, parameter, trackParameter);
         var compiled = lambda.Compile();
         ClonerCache.TryAdd(type, compiled);
         return compiled;
     }
 
-internal static Expression BuildCloneExpression(Type type, Expression source, Expression track)
-{
-    if (IsImmutable(type))
-        return source; // Return the original object for immutable types, includes value types and strings
-
-    var fields = ReflectionOptimizer.GetFields(type);
-    
-    // Attempt to retrieve the MemberwiseClone method with the appropriate binding flags
-    var cloneMethod = typeof(object).GetMethod("MemberwiseClone", BindingFlags.Instance | BindingFlags.NonPublic);
-    if (cloneMethod == null)
-        throw new InvalidOperationException("Could not find the MemberwiseClone method necessary for cloning.");
-
-    // Proceed with creating the cloning expression using the retrieved method
-    var cloneExpression = Expression.Call(source, cloneMethod);
-
-    // Cast the cloneExpression back to the original type
-    var typedCloneExpression = Expression.Convert(cloneExpression, type);
-
-    var bindings = new List<MemberBinding>();
-    foreach (var field in fields)
+    internal static Expression BuildCloneExpression(Type type, Expression source, Expression track)
     {
-        var cloneableAttr = field.GetCustomAttribute<CloneableAttribute>();
-        if (cloneableAttr is not null && !cloneableAttr.IsCloneable)
-            continue; // Skip cloning this field if it's marked as not cloneable
+        if (IsImmutable(type))
+            return source; // Return the original object for immutable types
 
-        var fieldType = field.FieldType;
-        var fieldExpression = Expression.Field(typedCloneExpression, field);
+        var properties = ReflectionOptimizer.GetProperties(type);
+        var bindings = new List<MemberBinding>();
 
-        // Check if the field itself is a collection and handle accordingly
-        if (typeof(IEnumerable).IsAssignableFrom(fieldType) && fieldType != typeof(string))
+        foreach (var property in properties)
         {
-            var clonedField = CollectionCloner.CloneCollection(fieldExpression, fieldType);
-            bindings.Add(Expression.Bind(field, clonedField));
+            if (!property.CanWrite || !property.CanRead)
+                continue; // Skip properties that cannot be read or written
+
+            var propertyExpression = Expression.Property(source, property);
+            var propertyType = property.PropertyType;
+
+            Expression clonedPropertyExpression;
+
+            if (typeof(IEnumerable).IsAssignableFrom(propertyType) && propertyType != typeof(string))
+                clonedPropertyExpression = CollectionCloner.CloneCollection(propertyExpression, propertyType, track);
+            else if (!IsImmutable(propertyType))
+                clonedPropertyExpression = BuildCloneExpression(propertyType, propertyExpression, track);
+            else
+                clonedPropertyExpression = propertyExpression;
+
+            bindings.Add(Expression.Bind(property, clonedPropertyExpression));
         }
-        else if (!IsImmutable(fieldType)) // Continue to use IsImmutable to check for types that need deep cloning
-        {
-            var clonedField = BuildCloneExpression(fieldType, fieldExpression, track);
-            bindings.Add(Expression.Bind(field, clonedField));
-        }
-        else
-        {
-            // Directly bind immutable or value type or string fields
-            bindings.Add(Expression.Bind(field, fieldExpression));
-        }
+
+        return Expression.MemberInit(Expression.New(type), bindings);
     }
-
-    return Expression.MemberInit(Expression.New(type), bindings);
-}
-
 
 
     private static bool IsImmutable(Type type)
     {
-        if (type.IsValueType || type == typeof(string))
-            return true; // Extend this to include other system types or custom immutable types
+        if (type.IsPrimitive || type == typeof(string))
+            return true; // Basic immutability check for system types
 
-        // Check if all fields are readonly
-        return type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
-            .All(f => f.IsInitOnly);
+        // Extended check for immutable collections or special classes
+        return type.Namespace?.StartsWith("System.Collections.Immutable", StringComparison.OrdinalIgnoreCase) is true ||
+               // Check if all properties have private setters or no setters at all, indicating immutability
+               type.GetProperties().All(prop => prop.SetMethod?.IsPublic != true);
     }
 }

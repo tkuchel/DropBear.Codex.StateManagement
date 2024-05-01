@@ -8,52 +8,54 @@ namespace DropBear.Codex.StateManagement.DeepCloning;
 
 public static class CollectionCloner
 {
-    public static Expression CloneCollection(Expression collection, Type collectionType)
-    {
-        var elementType = collectionType.IsArray
-            ? collectionType.GetElementType() ?? throw new InvalidOperationException("Array has no element type.")
-            : collectionType.GetGenericArguments().FirstOrDefault() ??
-              throw new InvalidOperationException("Generic collection has no element type.");
+    public static Expression CloneCollection(Expression collection, Type collectionType, Expression track)
+{
+    var elementType = collectionType.IsArray
+        ? collectionType.GetElementType() ?? throw new InvalidOperationException("Array has no element type.")
+        : collectionType.GetGenericArguments().FirstOrDefault() ??
+          throw new InvalidOperationException("Generic collection has no element type.");
 
-        var countProperty = collectionType.GetProperty("Count") ??
-                            throw new InvalidOperationException(
-                                $"No 'Count' property found on type {collectionType.Name}.");
-        var countExpression = Expression.Property(collection, countProperty);
+    var countProperty = collectionType.GetProperty("Count") ??
+                        throw new InvalidOperationException(
+                            $"No 'Count' property found on type {collectionType.Name}.");
+    var countExpression = Expression.Property(collection, countProperty);
 
-        var addMethod = collectionType.GetMethod("Add") ??
-                        throw new InvalidOperationException($"No 'Add' method found on type {collectionType.Name}.");
+    var addMethod = collectionType.GetMethod("Add") ??
+                    throw new InvalidOperationException($"No 'Add' method found on type {collectionType.Name}.");
 
-        var result = Expression.Variable(collectionType, "clonedCollection");
-        var index = Expression.Variable(typeof(int), "i");
-        var element = Expression.Variable(elementType, "element");
-        var assignNewCollection = Expression.Assign(result, Expression.New(collectionType));
-        var loopBreak = Expression.Label("loopBreak");
+    var result = Expression.Variable(collectionType, "clonedCollection");
+    var index = Expression.Variable(typeof(int), "i");
+    var element = Expression.Variable(elementType, "element");
+    var assignNewCollection = Expression.Assign(result, CreateNewInstanceExpression(collectionType));
+    var loopBreak = Expression.Label("loopBreak");
 
-        var loop = Expression.Block(new[] { index, element },
-            Expression.Assign(index, Expression.Constant(0)),
-            Expression.Loop(
-                Expression.IfThenElse(
-                    Expression.LessThan(index, countExpression),
-                    Expression.Block(
-                        Expression.Assign(element, Expression.Property(collection, "Item", index)),
-                        Expression.IfThen(
-                            Expression.TypeIs(element, elementType),
-                            Expression.Call(result, addMethod, element)
-                        ),
-                        Expression.PreIncrementAssign(index)
+    var elementClone = ExpressionCloner.BuildCloneExpression(elementType, Expression.Property(collection, "Item", index), track);
+    var loop = Expression.Block(new[] { index, element },
+        Expression.Assign(index, Expression.Constant(0)),
+        Expression.Loop(
+            Expression.IfThenElse(
+                Expression.LessThan(index, countExpression),
+                Expression.Block(
+                    Expression.Assign(element, elementClone),
+                    Expression.IfThen(
+                        Expression.TypeIs(element, elementType),
+                        Expression.Call(result, addMethod, element)
                     ),
-                    Expression.Break(loopBreak)
+                    Expression.PreIncrementAssign(index)
                 ),
-                loopBreak
-            )
-        );
+                Expression.Break(loopBreak)
+            ),
+            loopBreak
+        )
+    );
 
-        return Expression.Block(new[] { result },
-            assignNewCollection,
-            loop,
-            result
-        );
-    }
+    return Expression.Block(new[] { result },
+        assignNewCollection,
+        loop,
+        result
+    );
+}
+
 
     public static Expression CloneArray(Expression array, Type arrayType, Expression track)
     {

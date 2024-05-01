@@ -25,7 +25,7 @@ public static class DeepCloner
         if (UseExpressionBasedCloning(typeof(T)))
             try
             {
-                var cloner = GetExpressionCloner<T>();
+                var cloner = ExpressionCloner.GetCloner<T>();
                 var track = new Dictionary<object, object>(new ReferenceEqualityComparer());
                 var clonedObject = cloner(source, track);
                 return Result<T>.Success(clonedObject);
@@ -76,16 +76,16 @@ public static class DeepCloner
         return type.GetProperties().All(prop => prop.GetSetMethod() == null);
     }
 
-    private static Func<T, Dictionary<object, object>, T> GetExpressionCloner<T>()
-    {
-        if (ClonerCache.TryGetValue(typeof(T), out var cachedCloner))
-            return (Func<T, Dictionary<object, object>, T>)cachedCloner;
-        var parameter = Expression.Parameter(typeof(T), "input");
-        var trackParameter = Expression.Parameter(typeof(Dictionary<object, object>), "track");
-        var body = ExpressionCloner.BuildCloneExpression(typeof(T), parameter, trackParameter);
-        var lambda = Expression.Lambda<Func<T, Dictionary<object, object>, T>>(body, parameter, trackParameter);
-        var compiled = lambda.Compile();
-        ClonerCache.TryAdd(typeof(T), compiled);
-        return compiled;
-    }
+    // private static Func<T, Dictionary<object, object>, T> GetExpressionCloner<T>()
+    // {
+    //     if (ClonerCache.TryGetValue(typeof(T), out var cachedCloner))
+    //         return (Func<T, Dictionary<object, object>, T>)cachedCloner;
+    //     var parameter = Expression.Parameter(typeof(T), "input");
+    //     var trackParameter = Expression.Parameter(typeof(Dictionary<object, object>), "track");
+    //     var body = ExpressionCloner.BuildCloneExpression(typeof(T), parameter, trackParameter);
+    //     var lambda = Expression.Lambda<Func<T, Dictionary<object, object>, T>>(body, parameter, trackParameter);
+    //     var compiled = lambda.Compile();
+    //     ClonerCache.TryAdd(typeof(T), compiled);
+    //     return compiled;
+    // }
 }
