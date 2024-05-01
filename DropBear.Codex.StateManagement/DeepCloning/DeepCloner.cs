@@ -17,9 +17,6 @@ public static class DeepCloner
         PreserveReferencesHandling = PreserveReferencesHandling.Objects
     };
 
-    // Caching compiled cloning functions for expression-based cloning
-    private static readonly ConcurrentDictionary<Type, Delegate> ClonerCache = new();
-
     public static Result<T> Clone<T>(T source, JsonSerializerSettings? settings = null) where T : class
     {
         if (UseExpressionBasedCloning(typeof(T)))
@@ -75,17 +72,4 @@ public static class DeepCloner
         // Further immutability checks can be added here
         return type.GetProperties().All(prop => prop.GetSetMethod() == null);
     }
-
-    // private static Func<T, Dictionary<object, object>, T> GetExpressionCloner<T>()
-    // {
-    //     if (ClonerCache.TryGetValue(typeof(T), out var cachedCloner))
-    //         return (Func<T, Dictionary<object, object>, T>)cachedCloner;
-    //     var parameter = Expression.Parameter(typeof(T), "input");
-    //     var trackParameter = Expression.Parameter(typeof(Dictionary<object, object>), "track");
-    //     var body = ExpressionCloner.BuildCloneExpression(typeof(T), parameter, trackParameter);
-    //     var lambda = Expression.Lambda<Func<T, Dictionary<object, object>, T>>(body, parameter, trackParameter);
-    //     var compiled = lambda.Compile();
-    //     ClonerCache.TryAdd(typeof(T), compiled);
-    //     return compiled;
-    // }
 }
