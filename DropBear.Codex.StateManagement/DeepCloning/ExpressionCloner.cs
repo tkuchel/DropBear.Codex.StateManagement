@@ -26,7 +26,7 @@ public static class ExpressionCloner
         var parameter = Expression.Parameter(type, "input");
         var trackParameter = Expression.Parameter(typeof(Dictionary<object, object>), "track");
         var body = BuildCloneExpression(type, parameter, trackParameter);
-        Console.WriteLine(body);
+        //Console.WriteLine(body);
         var lambda = Expression.Lambda<Func<T, Dictionary<object, object>, T>>(body, parameter, trackParameter);
         var compiled = lambda.Compile();
         ClonerCache.TryAdd(type, compiled);
