@@ -26,6 +26,12 @@ public class SnapshotManagerRegistry : ISnapshotManagerRegistry
         manager.CreateSnapshot(currentState);
     }
 
+    public async Task<Result> CreateSnapshotAsync<T>(string key, Task<T> currentStateTask) where T : ICloneable<T>
+    {
+        var manager = GetOrCreateManager<T>(key, automaticSnapshotting: true, TimeSpan.FromMinutes(5), TimeSpan.FromDays(1));
+        return await manager.CreateSnapshotAsync(currentStateTask).ConfigureAwait(false);
+    }
+
     public Result RevertToSnapshot<T>(string key, int version) where T : ICloneable<T>
     {
         if (_managers.TryGetValue(key, out var manager) && manager is StateSnapshotManager<T> typedManager)
@@ -40,30 +46,42 @@ public class SnapshotManagerRegistry : ISnapshotManagerRegistry
         return Result<bool>.Failure("Snapshot manager not found.");
     }
 
+    public async Task<Result<bool>> IsDirtyAsync<T>(string key, Task<T> currentStateTask) where T : ICloneable<T>
+    {
+        if (_managers.TryGetValue(key, out var manager) && manager is StateSnapshotManager<T> typedManager)
+            return await typedManager.IsDirtyAsync(currentStateTask).ConfigureAwait(false);
+        return Result<bool>.Failure("Snapshot manager not found.");
+    }
+
+
     public void DisposeAll()
     {
-        foreach (var manager in _managers.Values)
-            if (manager is IDisposable disposable)
-                disposable.Dispose();
+        foreach (var manager in _managers.Values.OfType<IDisposable>())
+            manager.Dispose();
+
         _managers.Clear();
     }
 
-    public void Register<T>(StateSnapshotManager<T> manager, string key) where T : ICloneable<T>
+    public Result<TManager> GetManager<TManager>(string key) where TManager : ICloneable<TManager>
     {
-        if (_managers.TryAdd(key, manager)) return;
-        
-        // Silent dispose if key already exists
-        if (manager is IDisposable disposable)
-            disposable.Dispose();
-            
-        // Log warning if key already exists
-        Console.WriteLine($"Snapshot manager with key '{key}' already exists.");
+        if (_managers.TryGetValue(key, out var manager) && manager is TManager typedManager)
+            return Result<TManager>.Success(typedManager);
+        return Result<TManager>.Failure($"Snapshot manager for key '{key}' not found or wrong type.");
     }
 
-    public StateSnapshotManager<T>? GetManager<T>(string key) where T : ICloneable<T>
+    public void Register<T>(StateSnapshotManager<T> manager, string key, bool overwrite = false) where T : ICloneable<T>
     {
-        if (_managers.TryGetValue(key, out var manager) && manager is StateSnapshotManager<T> typedManager)
-            return typedManager;
-        return default;
+        switch (overwrite)
+        {
+            case false when !_managers.TryAdd(key, manager):
+                Console.WriteLine($"Snapshot manager with key '{key}' already exists.");
+                return;
+            case true when _managers.TryUpdate(key, manager, _managers[key]):
+                Console.WriteLine($"Snapshot manager with key '{key}' updated.");
+                break;
+            case true:
+                Console.WriteLine($"Failed to update snapshot manager with key '{key}'.");
+                break;
+        }
     }
 }
