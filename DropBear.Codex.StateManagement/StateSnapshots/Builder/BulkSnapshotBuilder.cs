@@ -52,7 +52,7 @@ public class BulkSnapshotBuilder
 
                     var method = _registry.GetType().GetMethod(nameof(ISnapshotManagerRegistry.Register));
                     var genericMethod = method?.MakeGenericMethod(typeArgument);
-                    genericMethod?.Invoke(_registry, new[] { manager, builder.RegistryKey });
+                    genericMethod?.Invoke(_registry, new[] { manager, builder.RegistryKey, false });
                 }
                 else
                 {
