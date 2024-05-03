@@ -16,6 +16,10 @@ public class BulkSnapshotBuilder
     public SnapshotBuilder<T> ConfigureFor<T>() where T : ICloneable<T>, new()
     {
         var builder = new SnapshotBuilder<T>();
+        if (_registry is not null)
+        {
+            builder.WithRegistry(_registry, typeof(T).FullName!);  // Ensure each new builder gets the registry
+        }
         _builders[typeof(T)] = builder;
         return builder;
     }
