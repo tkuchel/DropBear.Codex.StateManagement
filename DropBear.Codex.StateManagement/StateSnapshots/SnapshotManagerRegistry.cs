@@ -24,14 +24,14 @@ public class SnapshotManagerRegistry : ISnapshotManagerRegistry
                 _managers.TryAdd(key, newManager);
                 return newManager;
             }
+            
+            return Result<StateSnapshotManager<T>>.Success(CreateManager());
         }
         catch (Exception ex)
         {
             Console.WriteLine(ex.Message);
             return Result<StateSnapshotManager<T>>.Failure("Failed to create snapshot manager.");
         }
-
-        return Result<StateSnapshotManager<T>>.Failure("Failed to create snapshot manager.");
     }
 
     public Result CreateSnapshot<T>(string key, T currentState) where T : ICloneable<T>
