@@ -76,7 +76,8 @@ public class SnapshotBuilder<T> : ISnapshotBuilder where T : ICloneable<T>
 
         // Attempt to get or create the manager from the registry.
         var manager =
-            _registry.GetOrCreateManager<T>(_registryKey, _automaticSnapshotting, _snapshotInterval, _retentionTime);
+            _registry.GetOrCreateManager(_registryKey, _automaticSnapshotting, _snapshotInterval, _retentionTime,
+                _comparer);
         if (manager is null || manager.IsSuccess is false)
             throw new InvalidOperationException($"Failed to obtain a snapshot manager for key {_registryKey}.");
 

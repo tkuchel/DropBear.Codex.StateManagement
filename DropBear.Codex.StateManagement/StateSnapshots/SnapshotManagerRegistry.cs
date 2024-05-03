@@ -9,7 +9,7 @@ public class SnapshotManagerRegistry : ISnapshotManagerRegistry
     private readonly ConcurrentDictionary<string, object> _managers = new(StringComparer.OrdinalIgnoreCase);
 
     public Result<StateSnapshotManager<T>> GetOrCreateManager<T>(string key, bool automaticSnapshotting,
-        TimeSpan snapshotInterval, TimeSpan retentionTime) where T : ICloneable<T>
+        TimeSpan snapshotInterval, TimeSpan retentionTime, IStateComparer<T> comparer = null!) where T : ICloneable<T>
     {
         try
         {
@@ -17,15 +17,15 @@ public class SnapshotManagerRegistry : ISnapshotManagerRegistry
                 return Result<StateSnapshotManager<T>>.Success(typedManager);
 
 
+            return Result<StateSnapshotManager<T>>.Success(CreateManager());
+
             // Avoiding closure by using a local function
             StateSnapshotManager<T> CreateManager()
             {
-                var newManager = new StateSnapshotManager<T>(automaticSnapshotting, snapshotInterval, retentionTime);
+                var newManager = new StateSnapshotManager<T>(automaticSnapshotting, snapshotInterval, retentionTime,comparer);
                 _managers.TryAdd(key, newManager);
                 return newManager;
             }
-            
-            return Result<StateSnapshotManager<T>>.Success(CreateManager());
         }
         catch (Exception ex)
         {
