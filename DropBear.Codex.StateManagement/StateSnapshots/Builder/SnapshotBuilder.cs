@@ -20,14 +20,14 @@ public class SnapshotBuilder<T> : ISnapshotBuilder where T : ICloneable<T>
     // Expose registry key for the interface if needed
     string ISnapshotBuilder.RegistryKey => _registryKey ?? typeof(T).FullName!;
 
-    public SnapshotBuilder<T> SetAutomaticSnapshotting(bool enabled)
+    public SnapshotBuilder<T> WithAutomaticSnapshotting(bool enabled)
     {
         var newBuilder = Clone();
         newBuilder._automaticSnapshotting = enabled;
         return newBuilder;
     }
 
-    public SnapshotBuilder<T> SetSnapshotInterval(TimeSpan interval)
+    public SnapshotBuilder<T> WithSnapshotInterval(TimeSpan interval)
     {
         if (interval < TimeSpan.FromSeconds(1))
             throw new ArgumentException("Snapshot interval must be at least one second.", nameof(interval));
@@ -37,7 +37,7 @@ public class SnapshotBuilder<T> : ISnapshotBuilder where T : ICloneable<T>
         return newBuilder;
     }
 
-    public SnapshotBuilder<T> SetRetentionTime(TimeSpan retentionTime)
+    public SnapshotBuilder<T> WithRetentionTime(TimeSpan retentionTime)
     {
         if (retentionTime < TimeSpan.Zero)
             throw new ArgumentException("Retention time cannot be negative.", nameof(retentionTime));
@@ -47,7 +47,7 @@ public class SnapshotBuilder<T> : ISnapshotBuilder where T : ICloneable<T>
         return newBuilder;
     }
 
-    public SnapshotBuilder<T> UseRegistry(ISnapshotManagerRegistry registry, string? registryKey)
+    public SnapshotBuilder<T> WithRegistry(ISnapshotManagerRegistry registry, string? registryKey)
     {
         Console.WriteLine($"Registering type {typeof(T).Name} with key {registryKey}");
 
@@ -57,7 +57,7 @@ public class SnapshotBuilder<T> : ISnapshotBuilder where T : ICloneable<T>
         return newBuilder;
     }
 
-    public SnapshotBuilder<T> SetComparer(IStateComparer<T> comparer)
+    public SnapshotBuilder<T> WithComparer(IStateComparer<T> comparer)
     {
         var newBuilder = Clone();
         newBuilder._comparer = comparer;
@@ -68,12 +68,21 @@ public class SnapshotBuilder<T> : ISnapshotBuilder where T : ICloneable<T>
     {
         ValidateConfiguration();
 
-        if (_registry is not null && !string.IsNullOrEmpty(_registryKey))
-            return _registry.GetOrCreateManager<T>(_registryKey, _automaticSnapshotting,
-                _snapshotInterval, _retentionTime);
+        if (_registry is null)
+            throw new InvalidOperationException("Snapshot registry must be set before building.");
 
-        return new StateSnapshotManager<T>(_automaticSnapshotting, _snapshotInterval, _retentionTime, _comparer);
+        if (string.IsNullOrEmpty(_registryKey))
+            throw new InvalidOperationException("Registry key must be set before building.");
+
+        // Attempt to get or create the manager from the registry.
+        var manager =
+            _registry.GetOrCreateManager<T>(_registryKey, _automaticSnapshotting, _snapshotInterval, _retentionTime);
+        if (manager is null || manager.IsSuccess is false)
+            throw new InvalidOperationException($"Failed to obtain a snapshot manager for key {_registryKey}.");
+
+        return manager.Value;
     }
+
 
     private void ValidateConfiguration()
     {
