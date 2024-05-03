@@ -5,7 +5,7 @@ namespace DropBear.Codex.StateManagement.StateSnapshots.Interfaces;
 public interface ISnapshotManagerRegistry
 {
     Result<StateSnapshotManager<T>> GetOrCreateManager<T>(string key, bool automaticSnapshotting,
-        TimeSpan snapshotInterval, TimeSpan retentionTime,IStateComparer<T> comparer) where T : ICloneable<T>;
+        TimeSpan snapshotInterval, TimeSpan retentionTime,IStateComparer<T> comparer = null!) where T : ICloneable<T>;
 
     Result<StateSnapshotManager<T>> GetManager<T>(string key) where T : ICloneable<T>;
 
