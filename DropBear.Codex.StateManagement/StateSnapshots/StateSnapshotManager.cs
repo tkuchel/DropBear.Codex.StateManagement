@@ -90,6 +90,37 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
             return Result.Failure(e.Message);
         }
     }
+    
+    /// <summary>
+    /// Asynchronously creates a snapshot of the provided state once the state is available.
+    /// </summary>
+    /// <param name="currentStateTask">A task representing the asynchronous operation to obtain the state to be snapshotted.</param>
+    /// <returns>A task that represents the asynchronous operation of creating the snapshot.</returns>
+    /// <remarks>
+    /// This method waits for the state to be resolved from the provided Task and then creates a snapshot of it.
+    /// This is particularly useful when the state is being prepared or fetched asynchronously.
+    /// </remarks>
+    public async Task<Result> CreateSnapshotAsync(Task<T> currentStateTask)
+    {
+        try
+        {
+            T currentState = await currentStateTask.ConfigureAwait(false);
+            var clonedState = currentState.Clone();
+            var snapshot = new Snapshot<T>(clonedState);
+
+            _snapshots[Interlocked.Increment(ref _currentVersion)] = snapshot;
+            _currentState = currentState; // Update the current state to the new snapshot
+
+            // Optionally clean up old snapshots asynchronously
+            await Task.Run(CleanupOldSnapshots).ConfigureAwait(false);
+
+            return Result.Success();
+        }
+        catch (Exception e)
+        {
+            return Result.Failure(e.Message);
+        }
+    }
 
     public Result RevertToSnapshot(int version)
     {
@@ -143,6 +174,32 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
         {
             if (_snapshots.IsEmpty)
                 return Result<bool>.Success(true); // No snapshots available, consider dirty
+
+            if (!_snapshots.TryGetValue(_currentVersion, out var lastSnapshot))
+                return Result<bool>.Failure("Failed to retrieve the last snapshot.");
+
+            var isDirty = !_comparer.Equals(lastSnapshot.State, currentState);
+            return Result<bool>.Success(isDirty);
+        }
+        catch (Exception e)
+        {
+            return Result<bool>.Failure(e.Message);
+        }
+    }
+    
+    /// <summary>
+    /// Determines asynchronously if the current state is dirty by comparing it to the last snapshot.
+    /// </summary>
+    /// <param name="currentStateTask">A task representing the asynchronous operation to obtain the current state.</param>
+    /// <returns>A task that represents the asynchronous operation, containing the result of whether the state is dirty.</returns>
+    public async Task<Result<bool>> IsDirtyAsync(Task<T> currentStateTask)
+    {
+        try
+        {
+            T currentState = await currentStateTask.ConfigureAwait(false);
+
+            if (_snapshots.IsEmpty)
+                return Result<bool>.Success(value: true); // Consider dirty if no snapshots are available.
 
             if (!_snapshots.TryGetValue(_currentVersion, out var lastSnapshot))
                 return Result<bool>.Failure("Failed to retrieve the last snapshot.");
