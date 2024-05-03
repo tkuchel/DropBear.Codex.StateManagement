@@ -7,7 +7,7 @@ public class BulkSnapshotBuilder
     private readonly Dictionary<Type, object> _builders = new();
     private ISnapshotManagerRegistry? _registry;
 
-    public BulkSnapshotBuilder UseRegistry(ISnapshotManagerRegistry registry)
+    public BulkSnapshotBuilder WithRegistry(ISnapshotManagerRegistry registry)
     {
         _registry = registry;
         return this;
