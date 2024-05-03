@@ -7,7 +7,7 @@ public class SnapshotBuilder<T> : ISnapshotBuilder where T : ICloneable<T>
 {
     private bool _automaticSnapshotting = true;
     private IStateComparer<T> _comparer;
-    private ISnapshotManagerRegistry? _registry;
+    internal ISnapshotManagerRegistry? _registry;
     private string? _registryKey;
     private TimeSpan _retentionTime = TimeSpan.FromHours(24);
     private TimeSpan _snapshotInterval = TimeSpan.FromMinutes(1);
@@ -91,6 +91,11 @@ public class SnapshotBuilder<T> : ISnapshotBuilder where T : ICloneable<T>
             throw new InvalidOperationException("Snapshot interval cannot exceed the retention time.");
     }
 
-    private SnapshotBuilder<T> Clone() =>
-        (SnapshotBuilder<T>)MemberwiseClone(); // Correctly copies the current state of the builder
+    private SnapshotBuilder<T> Clone()
+    {
+        var cloned = (SnapshotBuilder<T>)MemberwiseClone();
+        Console.WriteLine($"Cloned builder for {typeof(T).Name}: Registry set: {cloned._registry != null}, Registry Key: {cloned._registryKey}");
+        return cloned;
+    }
+
 }

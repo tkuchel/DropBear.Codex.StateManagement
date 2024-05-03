@@ -25,6 +25,8 @@ public class BulkSnapshotBuilder
         foreach (var entry in _builders)
             if (entry.Value is ISnapshotBuilder builder)
             {
+                //Console.WriteLine($"Building manager for {entry.Key.Name}: Registry set: {((SnapshotBuilder<T>)builder)._registry != null}");
+
                 var manager = builder.Build(); // Assuming Build returns a correctly typed manager
                 var managerType = manager.GetType();
 
