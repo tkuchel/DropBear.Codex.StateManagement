@@ -20,7 +20,7 @@
     </PropertyGroup>
     <ItemGroup>
       <PackageReference Include="DropBear.Codex.AppLogger" Version="2024.4.14" />
-      <PackageReference Include="DropBear.Codex.Core" Version="2024.5.4" />
+      <PackageReference Include="DropBear.Codex.Core" Version="2024.5.6" />
       <PackageReference Include="Meziantou.DotNet.CodingStandard" Version="1.0.123">
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
