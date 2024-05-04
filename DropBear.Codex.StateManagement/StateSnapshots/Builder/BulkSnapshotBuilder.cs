@@ -96,7 +96,7 @@ public class BulkSnapshotBuilder : IBulkSnapshotBuilder
                     }
 
                     var registrationResult =
-                        (Result)genericRegisterMethod.Invoke(_registry, new[] { manager, builder.RegistryKey, false })!;
+                        (Result)genericRegisterMethod.Invoke(_registry, new[] { manager, builder.RegistryKey, true })!;
                     if (registrationResult is { IsSuccess: false })
                     {
                         errors.Add(registrationResult.ErrorMessage);
