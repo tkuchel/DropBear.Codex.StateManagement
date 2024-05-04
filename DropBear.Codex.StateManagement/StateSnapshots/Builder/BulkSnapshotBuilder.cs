@@ -14,7 +14,7 @@ public class BulkSnapshotBuilder : IBulkSnapshotBuilder
         return this;
     }
 
-    public ISnapshotBuilder ConfigureFor<T>() where T : ICloneable<T>, new()
+    public ISnapshotBuilder<T> ConfigureFor<T>() where T : ICloneable<T>, new()
     {
         if (!_builders.TryGetValue(typeof(T), out var builder))
         {
