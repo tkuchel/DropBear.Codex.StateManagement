@@ -1,26 +1,25 @@
-﻿using DropBear.Codex.StateManagement.StateSnapshots.Interfaces;
+﻿using DropBear.Codex.Core;
+using DropBear.Codex.StateManagement.StateSnapshots.Interfaces;
 using DropBear.Codex.StateManagement.StateSnapshots.Models;
 
 namespace DropBear.Codex.StateManagement.StateSnapshots.Builder;
 
-public class SnapshotBuilder<T> : ISnapshotBuilder where T : ICloneable<T>
+public class SnapshotBuilder<T> : ISnapshotBuilder<T> where T : ICloneable<T>
 {
     private bool _automaticSnapshotting = true;
-    private IStateComparer<T> _comparer;
+    private IStateComparer<T>? _comparer;
     private ISnapshotManagerRegistry? _registry;
     private string? _registryKey;
     private TimeSpan _retentionTime = TimeSpan.FromHours(24);
     private TimeSpan _snapshotInterval = TimeSpan.FromMinutes(1);
 
-    public SnapshotBuilder() => _comparer = new DefaultStateComparer<T>(); // Default comparer
-
-    public SnapshotBuilder<T> WithAutomaticSnapshotting(bool enabled)
+    public ISnapshotBuilder<T> WithAutomaticSnapshotting(bool enabled)
     {
         _automaticSnapshotting = enabled;
         return this;
     }
 
-    public SnapshotBuilder<T> WithSnapshotInterval(TimeSpan interval)
+    public ISnapshotBuilder<T> WithSnapshotInterval(TimeSpan interval)
     {
         if (interval < TimeSpan.FromSeconds(1))
             throw new ArgumentException("Snapshot interval must be at least one second.", nameof(interval));
@@ -29,7 +28,7 @@ public class SnapshotBuilder<T> : ISnapshotBuilder where T : ICloneable<T>
         return this;
     }
 
-    public SnapshotBuilder<T> WithRetentionTime(TimeSpan retentionTime)
+    public ISnapshotBuilder<T> WithRetentionTime(TimeSpan retentionTime)
     {
         if (retentionTime < TimeSpan.Zero)
             throw new ArgumentException("Retention time cannot be negative.", nameof(retentionTime));
@@ -38,38 +37,30 @@ public class SnapshotBuilder<T> : ISnapshotBuilder where T : ICloneable<T>
         return this;
     }
 
-    public SnapshotBuilder<T> WithRegistry(ISnapshotManagerRegistry registry, string? registryKey)
+    public ISnapshotBuilder<T> WithRegistry(ISnapshotManagerRegistry registry, string? registryKey = null)
     {
         _registry = registry;
-        _registryKey = registryKey ?? typeof(T).FullName;
+        _registryKey = registryKey;
         return this;
     }
 
-    public SnapshotBuilder<T> WithComparer(IStateComparer<T> comparer)
+    public ISnapshotBuilder<T> WithComparer(IStateComparer<T>? comparer)
     {
         _comparer = comparer;
         return this;
     }
 
-    public StateSnapshotManager<T> Build()
+    public Result<StateSnapshotManager<T>> Build()
     {
         if (_registry is null)
-            throw new InvalidOperationException("Snapshot registry must be set before building.");
+            return Result<StateSnapshotManager<T>>.Failure("Snapshot registry must be set before building.");
 
-        if (string.IsNullOrEmpty(_registryKey))
-            throw new InvalidOperationException("Registry key must be set before building.");
+        var registryKey = _registryKey ?? typeof(T).FullName ?? throw new InvalidOperationException("Registry key cannot be null or empty.");
 
-        var getOrCreateResult = _registry.GetOrCreateManager(_registryKey, _automaticSnapshotting, _snapshotInterval, _retentionTime, _comparer);
-        
-        if (!getOrCreateResult.IsSuccess)
-            throw new InvalidOperationException(getOrCreateResult.ErrorMessage);
-        
-        return getOrCreateResult.Value;
+        return _registry.GetOrCreateManager(registryKey, _automaticSnapshotting, _snapshotInterval, _retentionTime, _comparer ?? new DefaultStateComparer<T>());
     }
-    
-    // Explicit ISnapshotBuilder implementation for building the snapshot manager
-    object ISnapshotBuilder.Build() => Build();
 
-    // Expose registry key for the interface if needed
-    string ISnapshotBuilder.RegistryKey => _registryKey ?? typeof(T).FullName!;
+    Result<object> ISnapshotBuilder.Build() => Build().Map(manager => (object)manager);
+
+    string? ISnapshotBuilder.RegistryKey => _registryKey;
 }

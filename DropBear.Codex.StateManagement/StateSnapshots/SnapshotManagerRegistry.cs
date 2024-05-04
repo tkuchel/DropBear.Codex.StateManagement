@@ -9,87 +9,45 @@ public class SnapshotManagerRegistry : ISnapshotManagerRegistry
     private readonly ConcurrentDictionary<string, object> _managers = new(StringComparer.OrdinalIgnoreCase);
 
     public Result<StateSnapshotManager<T>> GetOrCreateManager<T>(string key, bool automaticSnapshotting,
-        TimeSpan snapshotInterval, TimeSpan retentionTime, IStateComparer<T> comparer = null!) where T : ICloneable<T>
+        TimeSpan snapshotInterval, TimeSpan retentionTime, IStateComparer<T>? comparer = null) where T : ICloneable<T>
     {
         try
         {
-            if (_managers.TryGetValue(key, out var manager) && manager is StateSnapshotManager<T> typedManager)
-                return Result<StateSnapshotManager<T>>.Success(typedManager);
+            return Result<StateSnapshotManager<T>>.Success(
+                _managers.GetOrAdd(key, _ => CreateManager()) as StateSnapshotManager<T> ??
+                throw new InvalidOperationException(
+                    $"Snapshot manager for key '{key}' is not of type StateSnapshotManager<{typeof(T).Name}>"));
 
-
-            return Result<StateSnapshotManager<T>>.Success(CreateManager());
-
-            // Avoiding closure by using a local function
+            // Local function to create a new manager
             StateSnapshotManager<T> CreateManager()
             {
-                var newManager = new StateSnapshotManager<T>(automaticSnapshotting, snapshotInterval, retentionTime,comparer);
-                _managers.TryAdd(key, newManager);
-                return newManager;
+                return new StateSnapshotManager<T>(automaticSnapshotting, snapshotInterval, retentionTime, comparer);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.Message);
-            return Result<StateSnapshotManager<T>>.Failure("Failed to create snapshot manager.");
+            return Result<StateSnapshotManager<T>>.Failure($"Failed to create snapshot manager: {ex.Message}", ex);
         }
     }
 
-    public Result CreateSnapshot<T>(string key, T currentState) where T : ICloneable<T>
-    {
-        try
-        {
-            if (_managers.TryGetValue(key, out var manager) && manager is StateSnapshotManager<T> typedManager)
-                return typedManager.CreateSnapshot(currentState);
-            return Result.Failure("Snapshot manager not found.");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.Message);
-            return Result.Failure("Failed to create snapshot.");
-        }
-    }
+    public Result CreateSnapshot<T>(string key, T currentState) where T : ICloneable<T> =>
+        ExecuteManagerAction<T>(key, manager => manager.CreateSnapshot(currentState));
 
-    public async Task<Result> CreateSnapshotAsync<T>(string key, Task<T> currentStateTask) where T : ICloneable<T>
-    {
-        try
-        {
-            if (_managers.TryGetValue(key, out var manager) && manager is StateSnapshotManager<T> typedManager)
-                return await typedManager.CreateSnapshotAsync(currentStateTask).ConfigureAwait(false);
-            return Result.Failure("Snapshot manager not found.");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.Message);
-            return Result.Failure("Failed to create snapshot.");
-        }
-    }
+    public Task<Result> CreateSnapshotAsync<T>(string key, Task<T> currentStateTask) where T : ICloneable<T> =>
+        ExecuteManagerActionAsync<T>(key, manager => manager.CreateSnapshotAsync(currentStateTask));
 
-    public Result RevertToSnapshot<T>(string key, int version) where T : ICloneable<T>
-    {
-        if (_managers.TryGetValue(key, out var manager) && manager is StateSnapshotManager<T> typedManager)
-            return typedManager.RevertToSnapshot(version);
-        return Result.Failure("Snapshot manager not found.");
-    }
+    public Result RevertToSnapshot<T>(string key, int version) where T : ICloneable<T> =>
+        ExecuteManagerAction<T>(key, manager => manager.RevertToSnapshot(version));
 
-    public Result<bool> IsDirty<T>(string key, T currentState) where T : ICloneable<T>
-    {
-        if (_managers.TryGetValue(key, out var manager) && manager is StateSnapshotManager<T> typedManager)
-            return typedManager.IsDirty(currentState);
-        return Result<bool>.Failure("Snapshot manager not found.");
-    }
+    public Result<bool> IsDirty<T>(string key, T currentState) where T : ICloneable<T> =>
+        ExecuteManagerFunc<T, bool>(key, manager => manager.IsDirty(currentState));
 
-    public async Task<Result<bool>> IsDirtyAsync<T>(string key, Task<T> currentStateTask) where T : ICloneable<T>
-    {
-        if (_managers.TryGetValue(key, out var manager) && manager is StateSnapshotManager<T> typedManager)
-            return await typedManager.IsDirtyAsync(currentStateTask).ConfigureAwait(false);
-        return Result<bool>.Failure("Snapshot manager not found.");
-    }
-
+    public Task<Result<bool>> IsDirtyAsync<T>(string key, Task<T> currentStateTask) where T : ICloneable<T> =>
+        ExecuteManagerFuncAsync<T, bool>(key, manager => manager.IsDirtyAsync(currentStateTask));
 
     public void DisposeAll()
     {
-        foreach (var manager in _managers.Values.OfType<IDisposable>())
-            manager.Dispose();
+        foreach (var disposableManager in _managers.Values.OfType<IDisposable>()) disposableManager.Dispose();
         _managers.Clear();
     }
 
@@ -103,20 +61,50 @@ public class SnapshotManagerRegistry : ISnapshotManagerRegistry
     public Result Register<T>(StateSnapshotManager<T> manager, string key, bool overwrite = false)
         where T : ICloneable<T>
     {
-        switch (overwrite)
-        {
-            case false when !_managers.TryAdd(key, manager):
-                Console.WriteLine($"Snapshot manager with key '{key}' already exists.");
-                return Result.PartialSuccess($"Snapshot manager with key '{key}' already exists.");
-            case true when _managers.TryUpdate(key, manager, _managers[key]):
-                Console.WriteLine($"Snapshot manager with key '{key}' updated.");
-                return Result.Success();
-            case true:
-                Console.WriteLine($"Failed to update snapshot manager with key '{key}'.");
-                return Result.Failure($"Failed to update snapshot manager with key '{key}'.");
-        }
+        var added = overwrite
+            ? _managers.TryUpdate(key, manager, _managers.GetValueOrDefault(key)!)
+            : _managers.TryAdd(key, manager);
 
-        Console.WriteLine($"Failed to register snapshot manager with key '{key}'.");
-        return Result.Failure($"Failed to register snapshot manager with key '{key}'.");
+        return added
+            ? Result.Success()
+            : Result.Failure($"Failed to register snapshot manager with key '{key}'.");
+    }
+
+    public Result<int> GetCurrentVersion<T>(string key) where T : ICloneable<T> =>
+        ExecuteManagerFunc<T, int>(key, manager => manager.GetCurrentVersion());
+
+    public Result<T?> GetCurrentState<T>(string key) where T : ICloneable<T> =>
+        ExecuteManagerFunc<T, T?>(key, manager => Result<T?>.Success(manager.GetCurrentState()));
+
+    private Result ExecuteManagerAction<T>(string key, Func<StateSnapshotManager<T>, Result> action)
+        where T : ICloneable<T> =>
+        GetManager<T>(key)
+            .OnSuccess(action)
+            .OnFailure((error, _) => Result.Failure(error))
+            .Unwrap();
+
+    private Result<TResult> ExecuteManagerFunc<T, TResult>(string key,
+        Func<StateSnapshotManager<T>, Result<TResult>> func) where T : ICloneable<T> =>
+        GetManager<T>(key)
+            .OnSuccess(func)
+            .OnFailure((error, _) => Result<TResult>.Failure(error))
+            .Unwrap();
+
+    private async Task<Result> ExecuteManagerActionAsync<T>(string key,
+        Func<StateSnapshotManager<T>, Task<Result>> action) where T : ICloneable<T>
+    {
+        var managerResult = GetManager<T>(key);
+        return managerResult.IsSuccess
+            ? await action(managerResult.Value).ConfigureAwait(false)
+            : Result.Failure(managerResult.ErrorMessage ?? "An unknown error has occurred.");
+    }
+
+    private async Task<Result<TResult>> ExecuteManagerFuncAsync<T, TResult>(string key,
+        Func<StateSnapshotManager<T>, Task<Result<TResult>>> func) where T : ICloneable<T>
+    {
+        var managerResult = GetManager<T>(key);
+        return managerResult.IsSuccess
+            ? await func(managerResult.Value).ConfigureAwait(false)
+            : Result<TResult>.Failure(managerResult.ErrorMessage ?? "An unknown error has occurred.");
     }
 }

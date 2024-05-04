@@ -1,64 +1,73 @@
-﻿using DropBear.Codex.StateManagement.StateSnapshots.Interfaces;
+﻿using DropBear.Codex.Core;
+using DropBear.Codex.StateManagement.StateSnapshots.Interfaces;
 
 namespace DropBear.Codex.StateManagement.StateSnapshots.Builder;
 
-public class BulkSnapshotBuilder
+public class BulkSnapshotBuilder : IBulkSnapshotBuilder
 {
-    private readonly Dictionary<Type, object> _builders = new();
+    private readonly Dictionary<Type, ISnapshotBuilder> _builders = new();
     private ISnapshotManagerRegistry? _registry;
 
-    public BulkSnapshotBuilder WithRegistry(ISnapshotManagerRegistry registry)
+    public IBulkSnapshotBuilder WithRegistry(ISnapshotManagerRegistry registry)
     {
         _registry = registry;
         return this;
     }
 
-    public SnapshotBuilder<T> ConfigureFor<T>() where T : ICloneable<T>, new()
+    public ISnapshotBuilder ConfigureFor<T>() where T : ICloneable<T>, new()
     {
-        var builder = new SnapshotBuilder<T>();
-        if (_registry is not null)
+        if (!_builders.TryGetValue(typeof(T), out var builder))
         {
-            builder.WithRegistry(_registry, typeof(T).FullName!);  // Ensure each new builder gets the registry
+            builder = new SnapshotBuilder<T>();
+            _builders[typeof(T)] = builder;
         }
-        _builders[typeof(T)] = builder;
-        return builder;
+
+        if (_registry is not null && builder is ISnapshotBuilder<T> typedBuilder)
+            typedBuilder.WithRegistry(_registry, typeof(T).FullName!);
+
+        return (ISnapshotBuilder<T>)builder;
     }
 
-    public void BuildAll()
+    public Result BuildAll()
     {
-        foreach (var entry in _builders)
-            if (entry.Value is ISnapshotBuilder builder)
+        try
+        {
+            foreach (var builder in _builders.Values)
             {
-                //Console.WriteLine($"Building manager for {entry.Key.Name}: Registry set: {((SnapshotBuilder<T>)builder)._registry != null}");
-
-                var manager = builder.Build(); // Assuming Build returns a correctly typed manager
+                var manager = builder.Build();
                 var managerType = manager.GetType();
 
-                // Check if manager is of type StateSnapshotManager<T>
                 if (managerType.IsGenericType &&
                     managerType.GetGenericTypeDefinition() == typeof(StateSnapshotManager<>))
                 {
-                    var typeArgument = managerType.GetGenericArguments()[0]; // This should be ClientUpdateDto
+                    var typeArgument = managerType.GetGenericArguments()[0];
 
-                    // Additional check to ensure that typeArgument implements ICloneable<T>
-                    var cloneableInterface = typeof(ICloneable<>).MakeGenericType(typeArgument);
-                    if (!cloneableInterface.IsAssignableFrom(typeArgument))
-                        throw new InvalidOperationException(
+                    if (!typeof(ICloneable<>).MakeGenericType(typeArgument).IsAssignableFrom(typeArgument))
+                        return Result.Failure(
                             $"Type {typeArgument.Name} does not implement ICloneable<{typeArgument.Name}> as expected.");
 
                     if (_registry is null || string.IsNullOrEmpty(builder.RegistryKey)) continue;
-                    
-                    Console.WriteLine($"Registering manager of type: {managerType}, with T: {typeArgument}");
 
-                    var method = _registry.GetType().GetMethod(nameof(ISnapshotManagerRegistry.Register));
-                    var genericMethod = method?.MakeGenericMethod(typeArgument);
-                    genericMethod?.Invoke(_registry, new[] { manager, builder.RegistryKey, false });
+                    var registerMethod =
+                        typeof(ISnapshotManagerRegistry).GetMethod(nameof(ISnapshotManagerRegistry.Register));
+                    var genericRegisterMethod = registerMethod?.MakeGenericMethod(typeArgument);
+
+                    var registrationResult = (Result)genericRegisterMethod?.Invoke(_registry,
+                        [manager, builder.RegistryKey, false])!;
+
+                    if (!registrationResult.IsSuccess) return registrationResult;
                 }
                 else
                 {
-                    throw new InvalidOperationException(
-                        "The manager type is not a generic StateSnapshotManager<T> as expected.");
+                    return Result.Failure("The manager type is not a generic StateSnapshotManager<T> as expected.");
                 }
             }
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"An error occurred while building snapshot managers: {ex.Message}", ex);
+        }
     }
 }

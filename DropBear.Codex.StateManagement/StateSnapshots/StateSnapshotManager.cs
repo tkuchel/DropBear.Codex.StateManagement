@@ -35,13 +35,11 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
 
     public void Dispose()
     {
-        // Dispose any existing subscription and clear the snapshots
-        _snapshots.Clear();
         _stateRevertedSubject.Dispose();
         DisposeCurrentSubscription();
     }
 
-    public Result SubscribeModelChanges(ObservableModel<T> model)
+    public Result SubscribeModelChanges(Observable<T> modelStateChanges)
     {
         if (!_automaticSnapshotting)
             return Result.Success(); // Return success if not subscribing due to manual control
@@ -50,12 +48,9 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
 
         try
         {
-            _subscription = model.StateChanged
-                .Debounce(_snapshotInterval, TimeProvider.System)
+            _subscription = modelStateChanges
+                .Debounce(_snapshotInterval)
                 .Subscribe(HandleModelChanged);
-            
-            // Take an initial snapshot immediately upon subscription
-            CreateSnapshot(model.State);
 
             return Result.Success();
         }
@@ -67,8 +62,7 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
 
     private void DisposeCurrentSubscription()
     {
-        if (_subscription is null) return;
-        _subscription.Dispose();
+        _subscription?.Dispose();
         _subscription = null;
     }
 
@@ -78,11 +72,10 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
     {
         try
         {
-            var clonedState = currentState.Clone();
-            var snapshot = new Snapshot<T>(clonedState);
+            var snapshot = new Snapshot<T>(currentState.Clone());
             _snapshots[Interlocked.Increment(ref _currentVersion)] = snapshot;
-            _currentState = currentState; // Update the current state
-            _ = Task.Run(CleanupOldSnapshots); // Opt for Task.Run for simplicity in fire-and-forget scenario
+            _currentState = currentState;
+            _ = CleanupOldSnapshotsAsync(); // Fire and forget cleanup task
             return Result.Success();
         }
         catch (Exception e)
@@ -90,31 +83,13 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
             return Result.Failure(e.Message);
         }
     }
-    
-    /// <summary>
-    /// Asynchronously creates a snapshot of the provided state once the state is available.
-    /// </summary>
-    /// <param name="currentStateTask">A task representing the asynchronous operation to obtain the state to be snapshotted.</param>
-    /// <returns>A task that represents the asynchronous operation of creating the snapshot.</returns>
-    /// <remarks>
-    /// This method waits for the state to be resolved from the provided Task and then creates a snapshot of it.
-    /// This is particularly useful when the state is being prepared or fetched asynchronously.
-    /// </remarks>
+
     public async Task<Result> CreateSnapshotAsync(Task<T> currentStateTask)
     {
         try
         {
-            T currentState = await currentStateTask.ConfigureAwait(false);
-            var clonedState = currentState.Clone();
-            var snapshot = new Snapshot<T>(clonedState);
-
-            _snapshots[Interlocked.Increment(ref _currentVersion)] = snapshot;
-            _currentState = currentState; // Update the current state to the new snapshot
-
-            // Optionally clean up old snapshots asynchronously
-            await Task.Run(CleanupOldSnapshots).ConfigureAwait(false);
-
-            return Result.Success();
+            var currentState = await currentStateTask.ConfigureAwait(false);
+            return CreateSnapshot(currentState);
         }
         catch (Exception e)
         {
@@ -124,12 +99,10 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
 
     public Result RevertToSnapshot(int version)
     {
-        Console.WriteLine($"Attempting to revert to snapshot version: {version}");
-        Console.WriteLine($"Available snapshots: {string.Join(", ", _snapshots.Keys)}");
+        if (!_snapshots.TryGetValue(version, out var snapshot))
+            return Result.Failure("Snapshot not found.");
 
-        if (!_snapshots.TryGetValue(version, out var snapshot)) return Result.Failure("Snapshot not found.");
-
-        _currentState = snapshot.State;
+        _currentState = snapshot.State.Clone();
         _currentVersion = version;
         NotifyStateReverted(_currentState);
         return Result.Success();
@@ -143,29 +116,22 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
             !_snapshots.TryGetValue(version2, out var snapshot2))
             return Result<bool>.Failure("One or both snapshots not found.");
 
-        var areEqual = EqualityComparer<T>.Default.Equals(snapshot1.State, snapshot2.State);
+        var areEqual = _comparer.Equals(snapshot1.State, snapshot2.State);
         return Result<bool>.Success(areEqual);
     }
 
-    public Result ClearSnapshots()
-    {
-        try
-        {
-            _snapshots.Clear();
-            return Result.Success();
-        }
-        catch (Exception e)
-        {
-            return Result.Failure(e.Message);
-        }
-    }
-    
-    private void CleanupOldSnapshots()
+    public void ClearSnapshots() => _snapshots.Clear();
+
+    private async Task CleanupOldSnapshotsAsync()
     {
         var cutoff = DateTimeOffset.UtcNow - _retentionTime;
         var oldKeys = _snapshots.Where(kvp => kvp.Value.Timestamp < cutoff).Select(kvp => kvp.Key).ToList();
-        foreach (var key in oldKeys)
-            _snapshots.TryRemove(key, out _);
+
+        await Task.Run(() =>
+        {
+            foreach (var key in oldKeys)
+                _snapshots.TryRemove(key, out _);
+        }).ConfigureAwait(false);
     }
 
     public Result<bool> IsDirty(T currentState)
@@ -186,26 +152,13 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
             return Result<bool>.Failure(e.Message);
         }
     }
-    
-    /// <summary>
-    /// Determines asynchronously if the current state is dirty by comparing it to the last snapshot.
-    /// </summary>
-    /// <param name="currentStateTask">A task representing the asynchronous operation to obtain the current state.</param>
-    /// <returns>A task that represents the asynchronous operation, containing the result of whether the state is dirty.</returns>
+
     public async Task<Result<bool>> IsDirtyAsync(Task<T> currentStateTask)
     {
         try
         {
-            T currentState = await currentStateTask.ConfigureAwait(false);
-
-            if (_snapshots.IsEmpty)
-                return Result<bool>.Success(value: true); // Consider dirty if no snapshots are available.
-
-            if (!_snapshots.TryGetValue(_currentVersion, out var lastSnapshot))
-                return Result<bool>.Failure("Failed to retrieve the last snapshot.");
-
-            var isDirty = !_comparer.Equals(lastSnapshot.State, currentState);
-            return Result<bool>.Success(isDirty);
+            var currentState = await currentStateTask.ConfigureAwait(false);
+            return IsDirty(currentState);
         }
         catch (Exception e)
         {
@@ -213,5 +166,7 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
         }
     }
 
-    public T? GetCurrentState() => _currentState;
+    public T? GetCurrentState() => _currentState is not null ? _currentState.Clone() : default;
+
+    public Result<int> GetCurrentVersion() => Result<int>.Success(_currentVersion);
 }
