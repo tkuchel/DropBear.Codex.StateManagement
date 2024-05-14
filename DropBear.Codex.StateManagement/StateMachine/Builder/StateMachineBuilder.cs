@@ -8,82 +8,106 @@ public class StateMachineBuilder<TState, TTrigger>
 
     public StateMachineBuilder(TState initialState)
     {
-        if (initialState is null)
-            throw new ArgumentNullException(nameof(initialState), "Initial state cannot be null.");
+        ArgumentNullException.ThrowIfNull(initialState, nameof(initialState));
         _stateMachine = new StateMachine<TState, TTrigger>(initialState);
     }
 
     public StateMachineBuilder<TState, TTrigger> ConfigureState(TState state)
     {
-        if (state is null) throw new ArgumentNullException(nameof(state), "State cannot be null.");
+        ArgumentNullException.ThrowIfNull(state, nameof(state));
         _stateMachine.Configure(state);
         return this;
     }
 
     public StateMachineBuilder<TState, TTrigger> Permit(TTrigger trigger, TState destinationState)
     {
-        if (trigger is null) throw new ArgumentNullException(nameof(trigger), "Trigger cannot be null.");
-        if (destinationState is null)
-            throw new ArgumentNullException(nameof(destinationState), "Destination state cannot be null.");
+        ArgumentNullException.ThrowIfNull(trigger, nameof(trigger));
+        ArgumentNullException.ThrowIfNull(destinationState, nameof(destinationState));
         _stateMachine.Configure(destinationState).Permit(trigger, destinationState);
+        return this;
+    }
+
+    public StateMachineBuilder<TState, TTrigger> PermitReentry(TState state, TTrigger trigger)
+    {
+        ArgumentNullException.ThrowIfNull(state, nameof(state));
+        ArgumentNullException.ThrowIfNull(trigger, nameof(trigger));
+        _stateMachine.Configure(state).PermitReentry(trigger);
+        return this;
+    }
+
+    public StateMachineBuilder<TState, TTrigger> Ignore(TState state, TTrigger trigger)
+    {
+        ArgumentNullException.ThrowIfNull(state, nameof(state));
+        ArgumentNullException.ThrowIfNull(trigger, nameof(trigger));
+        _stateMachine.Configure(state).Ignore(trigger);
         return this;
     }
 
     public StateMachineBuilder<TState, TTrigger> OnEntry(TState state, Action entryAction)
     {
-        if (state is null) throw new ArgumentNullException(nameof(state), "State cannot be null.");
-        if (entryAction is null) throw new ArgumentNullException(nameof(entryAction), "Entry action cannot be null.");
+        ArgumentNullException.ThrowIfNull(state, nameof(state));
+        ArgumentNullException.ThrowIfNull(entryAction, nameof(entryAction));
         _stateMachine.Configure(state).OnEntry(entryAction);
         return this;
     }
 
     public StateMachineBuilder<TState, TTrigger> OnExit(TState state, Action exitAction)
     {
-        if (state is null) throw new ArgumentNullException(nameof(state), "State cannot be null.");
-        if (exitAction is null) throw new ArgumentNullException(nameof(exitAction), "Exit action cannot be null.");
+        ArgumentNullException.ThrowIfNull(state, nameof(state));
+        ArgumentNullException.ThrowIfNull(exitAction, nameof(exitAction));
         _stateMachine.Configure(state).OnExit(exitAction);
         return this;
     }
 
     public StateMachineBuilder<TState, TTrigger> SubstateOf(TState state, TState superstate)
     {
-        if (state is null) throw new ArgumentNullException(nameof(state), "State cannot be null.");
-        if (superstate is null) throw new ArgumentNullException(nameof(superstate), "Superstate cannot be null.");
+        ArgumentNullException.ThrowIfNull(state, nameof(state));
+        ArgumentNullException.ThrowIfNull(superstate, nameof(superstate));
         _stateMachine.Configure(state).SubstateOf(superstate);
         return this;
     }
 
-    public StateMachineBuilder<TState, TTrigger> InternalTransition(TState state, TTrigger trigger, Action transitionAction)
+    public StateMachineBuilder<TState, TTrigger> InternalTransition(TState state, TTrigger trigger,
+        Action transitionAction)
     {
-        if (state is null) throw new ArgumentNullException(nameof(state), "State cannot be null.");
-        if (trigger is null) throw new ArgumentNullException(nameof(trigger), "Trigger cannot be null.");
-        if (transitionAction is null) throw new ArgumentNullException(nameof(transitionAction), "Transition action cannot be null.");
+        ArgumentNullException.ThrowIfNull(state, nameof(state));
+        ArgumentNullException.ThrowIfNull(trigger, nameof(trigger));
+        ArgumentNullException.ThrowIfNull(transitionAction, nameof(transitionAction));
         _stateMachine.Configure(state).InternalTransition(trigger, transitionAction);
         return this;
     }
 
-    public StateMachineBuilder<TState, TTrigger> PermitIf(TState state, TTrigger trigger, TState destinationState, Func<bool> guard)
+    public StateMachineBuilder<TState, TTrigger> PermitIf(TState state, TTrigger trigger, TState destinationState,
+        Func<bool> guard)
     {
-        if (state is null) throw new ArgumentNullException(nameof(state), "State cannot be null.");
-        if (trigger is null) throw new ArgumentNullException(nameof(trigger), "Trigger cannot be null.");
-        if (destinationState is null) throw new ArgumentNullException(nameof(destinationState), "Destination state cannot be null.");
-        if (guard is null) throw new ArgumentNullException(nameof(guard), "Guard condition cannot be null.");
+        ArgumentNullException.ThrowIfNull(state, nameof(state));
+        ArgumentNullException.ThrowIfNull(trigger, nameof(trigger));
+        ArgumentNullException.ThrowIfNull(destinationState, nameof(destinationState));
+        ArgumentNullException.ThrowIfNull(guard, nameof(guard));
         _stateMachine.Configure(state).PermitIf(trigger, destinationState, guard);
         return this;
     }
 
     public StateMachineBuilder<TState, TTrigger> InitialTransition(TState state, TState initialState)
     {
-        if (state is null) throw new ArgumentNullException(nameof(state), "State cannot be null.");
-        if (initialState is null)
-            throw new ArgumentNullException(nameof(initialState), "Initial state cannot be null.");
+        ArgumentNullException.ThrowIfNull(state, nameof(state));
+        ArgumentNullException.ThrowIfNull(initialState, nameof(initialState));
         _stateMachine.Configure(state).InitialTransition(initialState);
+        return this;
+    }
+
+    public StateMachineBuilder<TState, TTrigger> OnEntryFrom(TState state, TTrigger trigger,
+        Action<StateMachine<TState, TTrigger>.Transition> entryActionFrom)
+    {
+        ArgumentNullException.ThrowIfNull(state, nameof(state));
+        ArgumentNullException.ThrowIfNull(trigger, nameof(trigger));
+        ArgumentNullException.ThrowIfNull(entryActionFrom, nameof(entryActionFrom));
+        _stateMachine.Configure(state).OnEntryFrom(trigger, entryActionFrom);
         return this;
     }
 
     public StateMachine<TState, TTrigger> Build() => _stateMachine;
 }
-
 // Usage example to demonstrate the enhanced features:
 // public class StateMachineExample
 // {
@@ -149,4 +173,3 @@ public class StateMachineBuilder<TState, TTrigger>
 //     UnmuteMicrophone, // Trigger to unmute the call
 //     PhoneHurledAgainstWall // Trigger when the phone is destroyed
 // }
-
