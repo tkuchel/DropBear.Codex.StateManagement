@@ -1,6 +1,10 @@
-﻿using System.Diagnostics;
+﻿#region
+
+using System.Diagnostics;
 using DropBear.Codex.Core;
 using Newtonsoft.Json;
+
+#endregion
 
 namespace DropBear.Codex.StateManagement.DeepCloning;
 

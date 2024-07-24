@@ -1,6 +1,10 @@
-﻿using System.Collections.Concurrent;
+﻿#region
+
+using System.Collections.Concurrent;
 using DropBear.Codex.Core;
 using DropBear.Codex.StateManagement.StateSnapshots.Interfaces;
+
+#endregion
 
 namespace DropBear.Codex.StateManagement.StateSnapshots;
 
@@ -30,31 +34,48 @@ public class SnapshotManagerRegistry : ISnapshotManagerRegistry
         }
     }
 
-    public Result CreateSnapshot<T>(string key, T currentState) where T : ICloneable<T> =>
-        ExecuteManagerAction<T>(key, manager => manager.CreateSnapshot(currentState));
+    public Result CreateSnapshot<T>(string key, T currentState) where T : ICloneable<T>
+    {
+        return ExecuteManagerAction<T>(key, manager => manager.CreateSnapshot(currentState));
+    }
 
-    public Task<Result> CreateSnapshotAsync<T>(string key, Task<T> currentStateTask) where T : ICloneable<T> =>
-        ExecuteManagerActionAsync<T>(key, manager => manager.CreateSnapshotAsync(currentStateTask));
+    public Task<Result> CreateSnapshotAsync<T>(string key, Task<T> currentStateTask) where T : ICloneable<T>
+    {
+        return ExecuteManagerActionAsync<T>(key, manager => manager.CreateSnapshotAsync(currentStateTask));
+    }
 
-    public Result RevertToSnapshot<T>(string key, int version) where T : ICloneable<T> =>
-        ExecuteManagerAction<T>(key, manager => manager.RevertToSnapshot(version));
+    public Result RevertToSnapshot<T>(string key, int version) where T : ICloneable<T>
+    {
+        return ExecuteManagerAction<T>(key, manager => manager.RevertToSnapshot(version));
+    }
 
-    public Result<bool> IsDirty<T>(string key, T currentState) where T : ICloneable<T> =>
-        ExecuteManagerFunc<T, bool>(key, manager => manager.IsDirty(currentState));
+    public Result<bool> IsDirty<T>(string key, T currentState) where T : ICloneable<T>
+    {
+        return ExecuteManagerFunc<T, bool>(key, manager => manager.IsDirty(currentState));
+    }
 
-    public Task<Result<bool>> IsDirtyAsync<T>(string key, Task<T> currentStateTask) where T : ICloneable<T> =>
-        ExecuteManagerFuncAsync<T, bool>(key, manager => manager.IsDirtyAsync(currentStateTask));
+    public Task<Result<bool>> IsDirtyAsync<T>(string key, Task<T> currentStateTask) where T : ICloneable<T>
+    {
+        return ExecuteManagerFuncAsync<T, bool>(key, manager => manager.IsDirtyAsync(currentStateTask));
+    }
 
     public void DisposeAll()
     {
-        foreach (var disposableManager in _managers.Values.OfType<IDisposable>()) disposableManager.Dispose();
+        foreach (var disposableManager in _managers.Values.OfType<IDisposable>())
+        {
+            disposableManager.Dispose();
+        }
+
         _managers.Clear();
     }
 
     public Result<StateSnapshotManager<T>> GetManager<T>(string key) where T : ICloneable<T>
     {
         if (_managers.TryGetValue(key, out var manager) && manager is StateSnapshotManager<T> typedManager)
+        {
             return Result<StateSnapshotManager<T>>.Success(typedManager);
+        }
+
         return Result<StateSnapshotManager<T>>.Failure($"Snapshot manager for key '{key}' not found or wrong type.");
     }
 
@@ -70,25 +91,33 @@ public class SnapshotManagerRegistry : ISnapshotManagerRegistry
             : Result.Failure($"Failed to register snapshot manager with key '{key}'.");
     }
 
-    public Result<int> GetCurrentVersion<T>(string key) where T : ICloneable<T> =>
-        ExecuteManagerFunc<T, int>(key, manager => manager.GetCurrentVersion());
+    public Result<int> GetCurrentVersion<T>(string key) where T : ICloneable<T>
+    {
+        return ExecuteManagerFunc<T, int>(key, manager => manager.GetCurrentVersion());
+    }
 
-    public Result<T?> GetCurrentState<T>(string key) where T : ICloneable<T> =>
-        ExecuteManagerFunc<T, T?>(key, manager => Result<T?>.Success(manager.GetCurrentState()));
+    public Result<T?> GetCurrentState<T>(string key) where T : ICloneable<T>
+    {
+        return ExecuteManagerFunc<T, T?>(key, manager => Result<T?>.Success(manager.GetCurrentState()));
+    }
 
     private Result ExecuteManagerAction<T>(string key, Func<StateSnapshotManager<T>, Result> action)
-        where T : ICloneable<T> =>
-        GetManager<T>(key)
+        where T : ICloneable<T>
+    {
+        return GetManager<T>(key)
             .OnSuccess(action)
             .OnFailure((error, _) => Result.Failure(error))
             .Unwrap();
+    }
 
     private Result<TResult> ExecuteManagerFunc<T, TResult>(string key,
-        Func<StateSnapshotManager<T>, Result<TResult>> func) where T : ICloneable<T> =>
-        GetManager<T>(key)
+        Func<StateSnapshotManager<T>, Result<TResult>> func) where T : ICloneable<T>
+    {
+        return GetManager<T>(key)
             .OnSuccess(func)
             .OnFailure((error, _) => Result<TResult>.Failure(error))
             .Unwrap();
+    }
 
     private async Task<Result> ExecuteManagerActionAsync<T>(string key,
         Func<StateSnapshotManager<T>, Task<Result>> action) where T : ICloneable<T>

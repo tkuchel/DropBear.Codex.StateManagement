@@ -1,5 +1,9 @@
-﻿using DropBear.Codex.Core;
+﻿#region
+
+using DropBear.Codex.Core;
 using DropBear.Codex.StateManagement.StateSnapshots.Interfaces;
+
+#endregion
 
 namespace DropBear.Codex.StateManagement.StateSnapshots.Builder;
 
@@ -23,7 +27,9 @@ public class BulkSnapshotBuilder : IBulkSnapshotBuilder
         }
 
         if (_registry is not null && builder is ISnapshotBuilder<T> typedBuilder)
+        {
             typedBuilder.WithRegistry(_registry, typeof(T).FullName!);
+        }
 
         return builder as ISnapshotBuilder<T> ?? default;
     }
@@ -117,11 +123,15 @@ public class BulkSnapshotBuilder : IBulkSnapshotBuilder
             }
 
             if (errors.Count > 0)
+            {
                 return Result.Failure("Errors occurred during build process.",
                     new AggregateException(errors.Select(e => new InvalidOperationException(e))));
+            }
 
             if (hasWarning)
+            {
                 return Result.Warning("Build completed with warnings.");
+            }
 
             return hasPartialSuccess
                 ? Result.PartialSuccess("Some components were only partially successful.")

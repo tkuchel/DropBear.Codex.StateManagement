@@ -2,13 +2,16 @@
 
 ## Overview
 
-The `StateSnapshotManager` library provides a comprehensive solution for managing state snapshots in .NET applications. It supports automatic snapshotting, state reversion, and notifications upon state changes, making it ideal for applications that require historical state management or undo capabilities.
+The `StateSnapshotManager` library provides a comprehensive solution for managing state snapshots in .NET applications.
+It supports automatic snapshotting, state reversion, and notifications upon state changes, making it ideal for
+applications that require historical state management or undo capabilities.
 
 ## Features
 
 - **Automatic Snapshotting**: Automatically captures snapshots of your application's state at configured intervals.
 - **State Reversion**: Allows reverting to any previously captured state snapshot.
-- **Observable State Changes**: Utilizes the R3 library to notify subscribers about state reversions, enabling reactive programming scenarios.
+- **Observable State Changes**: Utilizes the R3 library to notify subscribers about state reversions, enabling reactive
+  programming scenarios.
 - **Flexible Configuration**: Use the `SnapshotBuilder` for easy and fluent configuration of snapshot managers.
 - **Multi-Model Management**: Manage snapshots for multiple models using the `SnapshotManagerRegistry`.
 
@@ -81,7 +84,8 @@ var result = registry.RevertToSnapshot<User>("userManager", 1);
 
 ## Building and Contributing
 
-Contributions to the library are welcome! To build the project from source, clone the repository and open it in your preferred .NET development environment.
+Contributions to the library are welcome! To build the project from source, clone the repository and open it in your
+preferred .NET development environment.
 
 ## License
 

@@ -10,7 +10,10 @@ public sealed class CloneMethodAttribute : Attribute
     ///     Initializes a new instance of the <see cref="CloneMethodAttribute" /> class.
     /// </summary>
     /// <param name="useExpression">if set to <c>true</c> [use expression-based cloning].</param>
-    public CloneMethodAttribute(bool useExpression) => UseExpression = useExpression;
+    public CloneMethodAttribute(bool useExpression)
+    {
+        UseExpression = useExpression;
+    }
 
     /// <summary>
     ///     Gets a value indicating whether expression-based cloning should be used.

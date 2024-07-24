@@ -1,4 +1,8 @@
-﻿using DropBear.Codex.Core;
+﻿#region
+
+using DropBear.Codex.Core;
+
+#endregion
 
 namespace DropBear.Codex.StateManagement.StateSnapshots.Interfaces;
 

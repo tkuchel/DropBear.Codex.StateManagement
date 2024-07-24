@@ -1,4 +1,10 @@
-﻿namespace DropBear.Codex.StateManagement.DeepCloning.Comparers;
+﻿#region
+
+using System.Runtime.CompilerServices;
+
+#endregion
+
+namespace DropBear.Codex.StateManagement.DeepCloning.Comparers;
 
 public class ReferenceEqualityComparer : EqualityComparer<object>
 {
@@ -9,6 +15,6 @@ public class ReferenceEqualityComparer : EqualityComparer<object>
 
     public override int GetHashCode(object obj)
     {
-        return System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
+        return RuntimeHelpers.GetHashCode(obj);
     }
 }

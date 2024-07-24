@@ -1,6 +1,10 @@
-﻿using DropBear.Codex.StateManagement.StateSnapshots;
+﻿#region
+
+using DropBear.Codex.StateManagement.StateSnapshots;
 using DropBear.Codex.StateManagement.StateSnapshots.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
+
+#endregion
 
 namespace DropBear.Codex.StateManagement.Extensions;
 

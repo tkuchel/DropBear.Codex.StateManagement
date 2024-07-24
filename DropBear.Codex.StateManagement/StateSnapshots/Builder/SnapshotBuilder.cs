@@ -1,6 +1,10 @@
-﻿using DropBear.Codex.Core;
+﻿#region
+
+using DropBear.Codex.Core;
 using DropBear.Codex.StateManagement.StateSnapshots.Interfaces;
 using DropBear.Codex.StateManagement.StateSnapshots.Models;
+
+#endregion
 
 namespace DropBear.Codex.StateManagement.StateSnapshots.Builder;
 
@@ -22,7 +26,9 @@ public class SnapshotBuilder<T> : ISnapshotBuilder<T> where T : ICloneable<T>
     public ISnapshotBuilder<T> WithSnapshotInterval(TimeSpan interval)
     {
         if (interval < TimeSpan.FromSeconds(1))
+        {
             throw new ArgumentException("Snapshot interval must be at least one second.", nameof(interval));
+        }
 
         _snapshotInterval = interval;
         return this;
@@ -31,7 +37,9 @@ public class SnapshotBuilder<T> : ISnapshotBuilder<T> where T : ICloneable<T>
     public ISnapshotBuilder<T> WithRetentionTime(TimeSpan retentionTime)
     {
         if (retentionTime < TimeSpan.Zero)
+        {
             throw new ArgumentException("Retention time cannot be negative.", nameof(retentionTime));
+        }
 
         _retentionTime = retentionTime;
         return this;
@@ -53,14 +61,21 @@ public class SnapshotBuilder<T> : ISnapshotBuilder<T> where T : ICloneable<T>
     public Result<StateSnapshotManager<T>> Build()
     {
         if (_registry is null)
+        {
             return Result<StateSnapshotManager<T>>.Failure("Snapshot registry must be set before building.");
+        }
 
-        var registryKey = _registryKey ?? typeof(T).FullName ?? throw new InvalidOperationException("Registry key cannot be null or empty.");
+        var registryKey = _registryKey ?? typeof(T).FullName ??
+            throw new InvalidOperationException("Registry key cannot be null or empty.");
 
-        return _registry.GetOrCreateManager(registryKey, _automaticSnapshotting, _snapshotInterval, _retentionTime, _comparer ?? new DefaultStateComparer<T>());
+        return _registry.GetOrCreateManager(registryKey, _automaticSnapshotting, _snapshotInterval, _retentionTime,
+            _comparer ?? new DefaultStateComparer<T>());
     }
 
-    Result<object> ISnapshotBuilder.Build() => Build().Map(manager => (object)manager);
+    Result<object> ISnapshotBuilder.Build()
+    {
+        return Build().Map(manager => (object)manager);
+    }
 
     string? ISnapshotBuilder.RegistryKey => _registryKey;
 }

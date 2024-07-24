@@ -1,6 +1,10 @@
-﻿using System.Collections.Concurrent;
+﻿#region
+
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Reflection;
+
+#endregion
 
 namespace DropBear.Codex.StateManagement.DeepCloning;
 
@@ -12,12 +16,17 @@ public static class ReflectionOptimizer
 
     public static Collection<FieldInfo> GetFields(Type type)
     {
-        if (FieldsCache.TryGetValue(type, out var fields)) return fields;
+        if (FieldsCache.TryGetValue(type, out var fields))
+        {
+            return fields;
+        }
 
         fields = new Collection<FieldInfo>();
 
         foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+        {
             fields.Add(field);
+        }
 
         FieldsCache.TryAdd(type, fields);
 
@@ -26,7 +35,10 @@ public static class ReflectionOptimizer
 
     public static PropertyInfo[] GetProperties(Type type)
     {
-        if (PropertiesCache.TryGetValue(type, out var properties)) return properties;
+        if (PropertiesCache.TryGetValue(type, out var properties))
+        {
+            return properties;
+        }
 
         properties = type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
         PropertiesCache.TryAdd(type, properties);

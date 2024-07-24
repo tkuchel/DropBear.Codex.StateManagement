@@ -1,4 +1,8 @@
-﻿using Stateless;
+﻿#region
+
+using Stateless;
+
+#endregion
 
 namespace DropBear.Codex.StateManagement.StateMachine.Builder;
 
@@ -301,5 +305,8 @@ public class StateMachineBuilder<TState, TTrigger>
     ///     Builds and returns the configured state machine.
     /// </summary>
     /// <returns>The configured state machine.</returns>
-    public StateMachine<TState, TTrigger> Build() => _stateMachine;
+    public StateMachine<TState, TTrigger> Build()
+    {
+        return _stateMachine;
+    }
 }

@@ -1,60 +1,65 @@
-﻿using System.Collections;
+﻿#region
+
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Linq.Expressions;
 using System.Reflection;
+
+#endregion
 
 namespace DropBear.Codex.StateManagement.DeepCloning;
 
 public static class CollectionCloner
 {
     public static Expression CloneCollection(Expression collection, Type collectionType, Expression track)
-{
-    var elementType = collectionType.IsArray
-        ? collectionType.GetElementType() ?? throw new InvalidOperationException("Array has no element type.")
-        : collectionType.GetGenericArguments().FirstOrDefault() ??
-          throw new InvalidOperationException("Generic collection has no element type.");
+    {
+        var elementType = collectionType.IsArray
+            ? collectionType.GetElementType() ?? throw new InvalidOperationException("Array has no element type.")
+            : collectionType.GetGenericArguments().FirstOrDefault() ??
+              throw new InvalidOperationException("Generic collection has no element type.");
 
-    var countProperty = collectionType.GetProperty("Count") ??
-                        throw new InvalidOperationException(
-                            $"No 'Count' property found on type {collectionType.Name}.");
-    var countExpression = Expression.Property(collection, countProperty);
+        var countProperty = collectionType.GetProperty("Count") ??
+                            throw new InvalidOperationException(
+                                $"No 'Count' property found on type {collectionType.Name}.");
+        var countExpression = Expression.Property(collection, countProperty);
 
-    var addMethod = collectionType.GetMethod("Add") ??
-                    throw new InvalidOperationException($"No 'Add' method found on type {collectionType.Name}.");
+        var addMethod = collectionType.GetMethod("Add") ??
+                        throw new InvalidOperationException($"No 'Add' method found on type {collectionType.Name}.");
 
-    var result = Expression.Variable(collectionType, "clonedCollection");
-    var index = Expression.Variable(typeof(int), "i");
-    var element = Expression.Variable(elementType, "element");
-    var assignNewCollection = Expression.Assign(result, CreateNewInstanceExpression(collectionType));
-    var loopBreak = Expression.Label("loopBreak");
+        var result = Expression.Variable(collectionType, "clonedCollection");
+        var index = Expression.Variable(typeof(int), "i");
+        var element = Expression.Variable(elementType, "element");
+        var assignNewCollection = Expression.Assign(result, CreateNewInstanceExpression(collectionType));
+        var loopBreak = Expression.Label("loopBreak");
 
-    var elementClone = ExpressionCloner.BuildCloneExpression(elementType, Expression.Property(collection, "Item", index), track);
-    var loop = Expression.Block(new[] { index, element },
-        Expression.Assign(index, Expression.Constant(0)),
-        Expression.Loop(
-            Expression.IfThenElse(
-                Expression.LessThan(index, countExpression),
-                Expression.Block(
-                    Expression.Assign(element, elementClone),
-                    Expression.IfThen(
-                        Expression.TypeIs(element, elementType),
-                        Expression.Call(result, addMethod, element)
+        var elementClone =
+            ExpressionCloner.BuildCloneExpression(elementType, Expression.Property(collection, "Item", index), track);
+        var loop = Expression.Block(new[] { index, element },
+            Expression.Assign(index, Expression.Constant(0)),
+            Expression.Loop(
+                Expression.IfThenElse(
+                    Expression.LessThan(index, countExpression),
+                    Expression.Block(
+                        Expression.Assign(element, elementClone),
+                        Expression.IfThen(
+                            Expression.TypeIs(element, elementType),
+                            Expression.Call(result, addMethod, element)
+                        ),
+                        Expression.PreIncrementAssign(index)
                     ),
-                    Expression.PreIncrementAssign(index)
+                    Expression.Break(loopBreak)
                 ),
-                Expression.Break(loopBreak)
-            ),
-            loopBreak
-        )
-    );
+                loopBreak
+            )
+        );
 
-    return Expression.Block(new[] { result },
-        assignNewCollection,
-        loop,
-        result
-    );
-}
+        return Expression.Block(new[] { result },
+            assignNewCollection,
+            loop,
+            result
+        );
+    }
 
 
     public static Expression CloneArray(Expression array, Type arrayType, Expression track)
@@ -62,12 +67,15 @@ public static class CollectionCloner
         var elementType = arrayType.GetElementType();
         var lengthExpr = Expression.ArrayLength(array);
         var newArrayExpr =
-            Expression.NewArrayBounds(elementType ?? throw new InvalidOperationException("Element Type is null."), lengthExpr);
+            Expression.NewArrayBounds(elementType ?? throw new InvalidOperationException("Element Type is null."),
+                lengthExpr);
         return CreateElementCloneLoop(array, newArrayExpr, elementType, track);
     }
 
-    public static bool IsImmutableCollection(Type type) =>
-        type.Namespace?.StartsWith("System.Collections.Immutable", StringComparison.OrdinalIgnoreCase) is true;
+    public static bool IsImmutableCollection(Type type)
+    {
+        return type.Namespace?.StartsWith("System.Collections.Immutable", StringComparison.OrdinalIgnoreCase) is true;
+    }
 
     public static Expression CloneImmutableCollection(Expression collection, Type collectionType, Expression track)
     {
@@ -116,7 +124,10 @@ public static class CollectionCloner
 
     public static Expression CreateNewInstanceExpression(Type type)
     {
-        if (type.IsInterface || type.IsAbstract) type = GetConcreteType(type);
+        if (type.IsInterface || type.IsAbstract)
+        {
+            type = GetConcreteType(type);
+        }
 
         return Expression.New(type);
     }
@@ -156,15 +167,19 @@ public static class CollectionCloner
         var enumeratorType = typeof(IEnumerator<>).MakeGenericType(elementType);
         var enumeratorVar = Expression.Variable(enumeratorType, "enumerator");
         var getEnumeratorCall = Expression.Call(sourceCollection,
-            typeof(IEnumerable<>).MakeGenericType(elementType).GetMethod("GetEnumerator") ?? throw new InvalidOperationException("GetEnumerator method not found."));
-        var moveNextCall = Expression.Call(enumeratorVar, typeof(IEnumerator).GetMethod("MoveNext") ?? throw new InvalidOperationException("MoveNext method not found."));
+            typeof(IEnumerable<>).MakeGenericType(elementType).GetMethod("GetEnumerator") ??
+            throw new InvalidOperationException("GetEnumerator method not found."));
+        var moveNextCall = Expression.Call(enumeratorVar,
+            typeof(IEnumerator).GetMethod("MoveNext") ??
+            throw new InvalidOperationException("MoveNext method not found."));
         var currentElement = Expression.Property(enumeratorVar, "Current");
 
         var loopLabel = Expression.Label("loopEnd");
 
         var clonedElement = ExpressionCloner.BuildCloneExpression(elementType, currentElement, track);
         var addMethod = targetCollection.Type.GetMethod("Add");
-        var addCall = Expression.Call(targetCollection, addMethod ?? throw new InvalidOperationException("Add Method is null."), clonedElement);
+        var addCall = Expression.Call(targetCollection,
+            addMethod ?? throw new InvalidOperationException("Add Method is null."), clonedElement);
 
         var loopBlock = Expression.Loop(
             Expression.IfThenElse(

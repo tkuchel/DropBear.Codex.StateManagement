@@ -1,5 +1,9 @@
-﻿using System.ComponentModel;
+﻿#region
+
+using System.ComponentModel;
 using R3;
+
+#endregion
 
 namespace DropBear.Codex.StateManagement.StateSnapshots.Models;
 
@@ -21,11 +25,18 @@ public class ObservableModel<T> : INotifyPropertyChanged
         }
         set
         {
-            if (!IsValid(value)) throw new ArgumentException("Invalid state value.", nameof(value));
+            if (!IsValid(value))
+            {
+                throw new ArgumentException("Invalid state value.", nameof(value));
+            }
 
             lock (_lock)
             {
-                if (Equals(_state, value)) return;
+                if (Equals(_state, value))
+                {
+                    return;
+                }
+
                 _state = value;
             }
 
@@ -36,8 +47,14 @@ public class ObservableModel<T> : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    private static bool IsValid(T value) => value is not null; // Assume all values are valid by default
+    private static bool IsValid(T value)
+    {
+        return value is not null;
+        // Assume all values are valid by default
+    }
 
-    protected virtual void OnPropertyChanged(string propertyName) =>
+    protected virtual void OnPropertyChanged(string propertyName)
+    {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
 }

@@ -1,4 +1,8 @@
-﻿using System.Runtime.Serialization;
+﻿#region
+
+using System.Runtime.Serialization;
+
+#endregion
 
 namespace DropBear.Codex.StateManagement.StateSnapshots.Models;
 
@@ -30,12 +34,18 @@ public class Snapshot<T>
     /// </summary>
     private static string ResolveUserName(string createdBy)
     {
-        if (!string.IsNullOrEmpty(createdBy)) return createdBy;
+        if (!string.IsNullOrEmpty(createdBy))
+        {
+            return createdBy;
+        }
 
         // This method can be extended to handle different environments and security contexts.
         // For now, it uses Environment.UserName as a default.
         return Environment.UserName;
     }
 
-    public override string ToString() => $"Snapshot of {typeof(T).Name} taken by {CreatedBy} at {Timestamp}";
+    public override string ToString()
+    {
+        return $"Snapshot of {typeof(T).Name} taken by {CreatedBy} at {Timestamp}";
+    }
 }

@@ -1,9 +1,13 @@
-﻿using System.Collections.Concurrent;
+﻿#region
+
+using System.Collections.Concurrent;
 using DropBear.Codex.Core;
 using DropBear.Codex.StateManagement.StateSnapshots.Interfaces;
 using DropBear.Codex.StateManagement.StateSnapshots.Models;
 using R3;
 using Result = DropBear.Codex.Core.Result;
+
+#endregion
 
 namespace DropBear.Codex.StateManagement.StateSnapshots;
 
@@ -42,7 +46,9 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
     public Result SubscribeModelChanges(Observable<T> modelStateChanges)
     {
         if (!_automaticSnapshotting)
+        {
             return Result.Success(); // Return success if not subscribing due to manual control
+        }
 
         DisposeCurrentSubscription(); // Ensure any existing subscription is disposed
 
@@ -66,7 +72,10 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
         _subscription = null;
     }
 
-    private void HandleModelChanged(T state) => CreateSnapshot(state);
+    private void HandleModelChanged(T state)
+    {
+        CreateSnapshot(state);
+    }
 
     public Result CreateSnapshot(T currentState)
     {
@@ -100,7 +109,9 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
     public Result RevertToSnapshot(int version)
     {
         if (!_snapshots.TryGetValue(version, out var snapshot))
+        {
             return Result.Failure("Snapshot not found.");
+        }
 
         _currentState = snapshot.State.Clone();
         _currentVersion = version;
@@ -108,19 +119,27 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
         return Result.Success();
     }
 
-    private void NotifyStateReverted(T state) => _stateRevertedSubject.OnNext(state);
+    private void NotifyStateReverted(T state)
+    {
+        _stateRevertedSubject.OnNext(state);
+    }
 
     public Result<bool> CompareSnapshots(int version1, int version2)
     {
         if (!_snapshots.TryGetValue(version1, out var snapshot1) ||
             !_snapshots.TryGetValue(version2, out var snapshot2))
+        {
             return Result<bool>.Failure("One or both snapshots not found.");
+        }
 
         var areEqual = _comparer.Equals(snapshot1.State, snapshot2.State);
         return Result<bool>.Success(areEqual);
     }
 
-    public void ClearSnapshots() => _snapshots.Clear();
+    public void ClearSnapshots()
+    {
+        _snapshots.Clear();
+    }
 
     private async Task CleanupOldSnapshotsAsync()
     {
@@ -130,7 +149,9 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
         await Task.Run(() =>
         {
             foreach (var key in oldKeys)
+            {
                 _snapshots.TryRemove(key, out _);
+            }
         }).ConfigureAwait(false);
     }
 
@@ -139,10 +160,14 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
         try
         {
             if (_snapshots.IsEmpty)
+            {
                 return Result<bool>.Success(true); // No snapshots available, consider dirty
+            }
 
             if (!_snapshots.TryGetValue(_currentVersion, out var lastSnapshot))
+            {
                 return Result<bool>.Failure("Failed to retrieve the last snapshot.");
+            }
 
             var isDirty = !_comparer.Equals(lastSnapshot.State, currentState);
             return Result<bool>.Success(isDirty);
@@ -166,7 +191,13 @@ public class StateSnapshotManager<T> : IDisposable where T : ICloneable<T>
         }
     }
 
-    public T? GetCurrentState() => _currentState is not null ? _currentState.Clone() : default;
+    public T? GetCurrentState()
+    {
+        return _currentState is not null ? _currentState.Clone() : default;
+    }
 
-    public Result<int> GetCurrentVersion() => Result<int>.Success(_currentVersion);
+    public Result<int> GetCurrentVersion()
+    {
+        return Result<int>.Success(_currentVersion);
+    }
 }
